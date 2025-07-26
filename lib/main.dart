@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
 import 'services/spotify_auth_service.dart';
+import 'services/spotify_liked_songs_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -63,6 +64,11 @@ class _MyHomePageState extends State<MyHomePage> {
   String? _accessToken;
   StreamSubscription? _linkSubscription;
   late AppLinks _appLinks;
+  
+  List<LikedSong> _likedSongs = [];
+  bool _isLoadingLikedSongs = false;
+  int? _totalLikedSongs;
+  StreamSubscription<List<LikedSong>>? _likedSongsSubscription;
 
   @override
   void initState() {
@@ -133,16 +139,70 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _signOut() async {
+    _likedSongsSubscription?.cancel();
     await SpotifyAuthService.signOut();
     setState(() {
       _isSignedIn = false;
       _accessToken = null;
+      _likedSongs.clear();
+      _totalLikedSongs = null;
+      _isLoadingLikedSongs = false;
     });
+  }
+
+  Future<void> _fetchLikedSongs() async {
+    if (_isLoadingLikedSongs) return;
+    
+    setState(() {
+      _isLoadingLikedSongs = true;
+      _likedSongs.clear();
+    });
+
+    try {
+      // Get total count first
+      final total = await SpotifyLikedSongsService.getTotalLikedSongsCount();
+      setState(() {
+        _totalLikedSongs = total;
+      });
+
+      // Start streaming liked songs
+      _likedSongsSubscription = SpotifyLikedSongsService.fetchLikedSongs().listen(
+        (batch) {
+          setState(() {
+            _likedSongs.addAll(batch);
+          });
+        },
+        onError: (error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error fetching liked songs: $error')),
+          );
+          setState(() {
+            _isLoadingLikedSongs = false;
+          });
+        },
+        onDone: () {
+          setState(() {
+            _isLoadingLikedSongs = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Loaded ${_likedSongs.length} liked songs!')),
+          );
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+      setState(() {
+        _isLoadingLikedSongs = false;
+      });
+    }
   }
 
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    _likedSongsSubscription?.cancel();
     super.dispose();
   }
 
@@ -153,12 +213,12 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
+      body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
+              const SizedBox(height: 20),
               Icon(
                 Icons.music_note,
                 size: 80,
@@ -206,14 +266,47 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ],
                 const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _signOut,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Sign Out'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _isLoadingLikedSongs ? null : _fetchLikedSongs,
+                      icon: _isLoadingLikedSongs 
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.favorite),
+                      label: Text(_isLoadingLikedSongs ? 'Loading...' : 'Get Liked Songs'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1DB954),
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: _signOut,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Sign Out'),
+                    ),
+                  ],
                 ),
+                if (_totalLikedSongs != null) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    'Progress: ${_likedSongs.length}/${_totalLikedSongs} songs loaded',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(
+                    value: _totalLikedSongs! > 0 ? _likedSongs.length / _totalLikedSongs! : 0,
+                    backgroundColor: Colors.grey[300],
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1DB954)),
+                  ),
+                ],
               ] else ...[
                 const Text(
                   'Sign in to Spotify to get started',
@@ -236,6 +329,53 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                         ),
                       ),
+              ],
+              if (_likedSongs.isNotEmpty) ...[
+                const SizedBox(height: 30),
+                const Divider(),
+                const SizedBox(height: 20),
+                Text(
+                  'Your Liked Songs',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 20),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _likedSongs.length,
+                  itemBuilder: (context, index) {
+                    final song = _likedSongs[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.music_note,
+                          color: Color(0xFF1DB954),
+                        ),
+                        title: Text(
+                          song.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Artists: ${song.artists.join(', ')}'),
+                            Text('Album: ${song.album}'),
+                            Text('Added: ${song.addedAt.toLocal().toString().split(' ')[0]}'),
+                          ],
+                        ),
+                        trailing: Text(
+                          '${(song.durationMs / 60000).floor()}:${((song.durationMs % 60000) / 1000).floor().toString().padLeft(2, '0')}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        isThreeLine: true,
+                      ),
+                    );
+                  },
+                ),
               ],
             ],
           ),
