@@ -63,7 +63,7 @@ class _RatingScreenState extends State<RatingScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -72,7 +72,7 @@ class _RatingScreenState extends State<RatingScreen> {
                 _buildSurroundingReferencePoints(),
               ],
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 20),
             Expanded(
               child: Column(
                 children: [
@@ -84,7 +84,7 @@ class _RatingScreenState extends State<RatingScreen> {
                     onStart: () => setState(() => _activeSlider = 'quality'),
                     onEnd: () => setState(() => _activeSlider = null),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
                   _buildRatingSlider(
                     'Valence',
                     _valenceRating,
@@ -93,7 +93,7 @@ class _RatingScreenState extends State<RatingScreen> {
                     onStart: () => setState(() => _activeSlider = 'valence'),
                     onEnd: () => setState(() => _activeSlider = null),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
                   _buildRatingSlider(
                     'Intensity',
                     _intensityRating,
@@ -133,41 +133,38 @@ class _RatingScreenState extends State<RatingScreen> {
   }
 
   Widget _buildSurroundingReferencePoints() {
-    if (_activeSlider == null) {
-      return _buildCurrentSongCard();
+    final parameter = _activeSlider;
+    double? currentValue;
+    
+    if (parameter != null) {
+      switch (parameter) {
+        case 'quality':
+          currentValue = _qualityRating;
+          break;
+        case 'valence':
+          currentValue = _valenceRating;
+          break;
+        case 'intensity':
+          currentValue = _intensityRating;
+          break;
+      }
     }
 
-    final parameter = _activeSlider!;
-    double currentValue;
-    switch (parameter) {
-      case 'quality':
-        currentValue = _qualityRating;
-        break;
-      case 'valence':
-        currentValue = _valenceRating;
-        break;
-      case 'intensity':
-        currentValue = _intensityRating;
-        break;
-      default:
-        return _buildCurrentSongCard();
-    }
-
-    final currentInt = currentValue.round();
+    final currentInt = currentValue?.round();
     
     return Column(
       children: [
         // Song with $CURRENT_VALUE + 1
-        _buildReferenceSongCard(parameter, currentInt + 1),
-        const SizedBox(height: 8),
+        _buildReferenceSongCard(parameter, currentInt != null ? currentInt + 1 : null),
+        const SizedBox(height: 4),
         // Current song being rated
         _buildCurrentSongCard(),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         // Song with $CURRENT_VALUE
         _buildReferenceSongCard(parameter, currentInt),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         // Song with $CURRENT_VALUE - 1
-        _buildReferenceSongCard(parameter, currentInt - 1),
+        _buildReferenceSongCard(parameter, currentInt != null ? currentInt - 1 : null),
       ],
     );
   }
@@ -176,15 +173,15 @@ class _RatingScreenState extends State<RatingScreen> {
     return Card(
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
             const Icon(
               Icons.music_note,
               color: Color(0xFF1DB954),
-              size: 40,
+              size: 32,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,7 +189,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   Text(
                     widget.song.name,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                     maxLines: 2,
@@ -202,7 +199,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   Text(
                     widget.song.artists.join(', '),
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Colors.grey[600],
                     ),
                     maxLines: 1,
@@ -212,7 +209,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   Text(
                     widget.song.album,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: Colors.grey[500],
                     ),
                     maxLines: 1,
@@ -227,33 +224,83 @@ class _RatingScreenState extends State<RatingScreen> {
     );
   }
 
-  Widget _buildReferenceSongCard(String parameter, int targetValue) {
+  Widget _buildReferenceSongCard(String? parameter, int? targetValue) {
+    // Show empty placeholder when no active slider or target value
+    if (parameter == null || targetValue == null) {
+      return SizedBox(
+        height: 64,
+        child: Card(
+          elevation: 0,
+          color: Colors.transparent,
+          child: Container(),
+        ),
+      );
+    }
+
     final songs = _findSongsByRating(parameter, targetValue);
     
     if (songs.isEmpty) {
-      return Container(
-        height: 80,
+      return SizedBox(
+        height: 64,
         child: Card(
           elevation: 1,
-          color: Colors.grey[100],
+          color: Colors.blue[50],
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
                 Icon(
                   Icons.music_note_outlined,
                   color: Colors.grey[400],
-                  size: 40,
+                  size: 32,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'No songs with rating $targetValue',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
-                      fontStyle: FontStyle.italic,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[100],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '?',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'No songs with rating $targetValue',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[500],
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -264,68 +311,72 @@ class _RatingScreenState extends State<RatingScreen> {
     }
 
     final song = songs.first;
-    return Card(
-      elevation: 1,
-      color: Colors.blue[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Icon(
-              Icons.music_note_outlined,
-              color: Colors.blue[600],
-              size: 40,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          targetValue.toString(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[800],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          song.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    song.artists.join(', '),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+    return SizedBox(
+      height: 64,
+      child: Card(
+        elevation: 1,
+        color: Colors.blue[50],
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              Icon(
+                Icons.music_note_outlined,
+                color: Colors.blue[600],
+                size: 32,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            targetValue.toString(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue[800],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            song.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      song.artists.join(', '),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -419,13 +470,13 @@ class _RatingScreenState extends State<RatingScreen> {
             Text(
               label,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: color,
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
@@ -434,7 +485,7 @@ class _RatingScreenState extends State<RatingScreen> {
               child: Text(
                 value.round().toString(),
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
@@ -442,7 +493,7 @@ class _RatingScreenState extends State<RatingScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Row(
           children: [
             Text(
