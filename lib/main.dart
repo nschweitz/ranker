@@ -140,16 +140,16 @@ class _SongListItem extends StatelessWidget {
   }
 }
 
-class _RatingDialog extends StatefulWidget {
+class RatingScreen extends StatefulWidget {
   final LikedSong song;
   
-  const _RatingDialog({required this.song});
+  const RatingScreen({super.key, required this.song});
 
   @override
-  State<_RatingDialog> createState() => _RatingDialogState();
+  State<RatingScreen> createState() => _RatingScreenState();
 }
 
-class _RatingDialogState extends State<_RatingDialog> {
+class _RatingScreenState extends State<RatingScreen> {
   late double _qualityRating;
   late double _valenceRating;
   late double _intensityRating;
@@ -164,77 +164,121 @@ class _RatingDialogState extends State<_RatingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            widget.song.name,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            widget.song.artists.join(', '),
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('Rate Song'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await SpotifyLikedSongsService.updateSongRatings(
+                widget.song.id,
+                quality: _qualityRating.round(),
+                valence: _valenceRating.round(),
+                intensity: _intensityRating.round(),
+              );
+              if (mounted) {
+                Navigator.of(context).pop(true);
+              }
+            },
+            child: const Text(
+              'SAVE',
+              style: TextStyle(
+                color: Color(0xFF1DB954),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
-      content: SizedBox(
-        width: double.maxFinite,
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildRatingSlider(
-              'Quality',
-              _qualityRating,
-              Colors.blue,
-              (value) => setState(() => _qualityRating = value),
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.music_note,
+                      color: Color(0xFF1DB954),
+                      size: 40,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.song.name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.song.artists.join(', '),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.song.album,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 20),
-            _buildRatingSlider(
-              'Valence',
-              _valenceRating,
-              Colors.green,
-              (value) => setState(() => _valenceRating = value),
-            ),
-            const SizedBox(height: 20),
-            _buildRatingSlider(
-              'Intensity',
-              _intensityRating,
-              Colors.red,
-              (value) => setState(() => _intensityRating = value),
+            const SizedBox(height: 40),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildRatingSlider(
+                    'Quality',
+                    _qualityRating,
+                    Colors.blue,
+                    (value) => setState(() => _qualityRating = value),
+                  ),
+                  const SizedBox(height: 40),
+                  _buildRatingSlider(
+                    'Valence',
+                    _valenceRating,
+                    Colors.green,
+                    (value) => setState(() => _valenceRating = value),
+                  ),
+                  const SizedBox(height: 40),
+                  _buildRatingSlider(
+                    'Intensity',
+                    _intensityRating,
+                    Colors.red,
+                    (value) => setState(() => _intensityRating = value),
+                  ),
+                  const Spacer(),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            await SpotifyLikedSongsService.updateSongRatings(
-              widget.song.id,
-              quality: _qualityRating.round(),
-              valence: _valenceRating.round(),
-              intensity: _intensityRating.round(),
-            );
-            if (mounted) {
-              Navigator.of(context).pop(true);
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1DB954),
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 
@@ -247,18 +291,41 @@ class _RatingDialogState extends State<_RatingDialog> {
           children: [
             Text(
               label,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: color),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
-            Text(
-              value.round().toString(),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                value.round().toString(),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Row(
           children: [
-            const Text('-10', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              '-10',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             Expanded(
               child: Slider(
                 value: value,
@@ -270,7 +337,14 @@ class _RatingDialogState extends State<_RatingDialog> {
                 onChanged: onChanged,
               ),
             ),
-            const Text('10', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              '10',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ],
@@ -384,10 +458,11 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Future<void> _showRatingDialog(LikedSong song) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => _RatingDialog(song: song),
+  Future<void> _showRatingScreen(LikedSong song) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => RatingScreen(song: song),
+      ),
     );
     
     if (result == true) {
@@ -505,7 +580,7 @@ class _MyHomePageState extends State<MyHomePage> {
             final song = _likedSongs[index];
             return _SongListItem(
               song: song,
-              onTap: () => _showRatingDialog(song),
+              onTap: () => _showRatingScreen(song),
             );
           },
         ),
