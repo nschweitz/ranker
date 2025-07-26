@@ -43,6 +43,9 @@ dependencies:
   
   # Secure storage for tokens
   flutter_secure_storage: ^9.0.0
+  
+  # Crypto for PKCE S256 hashing
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:
