@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
 import 'services/spotify_auth_service.dart';
@@ -66,8 +65,9 @@ class _MyHomePageState extends State<MyHomePage> {
   late AppLinks _appLinks;
   
   List<LikedSong> _likedSongs = [];
-  bool _isLoadingLikedSongs = false;
+  bool _isSyncing = false;
   int? _totalLikedSongs;
+  DateTime? _lastSyncTime;
   StreamSubscription<List<LikedSong>>? _likedSongsSubscription;
 
   @override
@@ -76,6 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _appLinks = AppLinks();
     _checkSignInStatus();
     _handleIncomingLinks();
+    _loadCachedData();
   }
 
   void _handleIncomingLinks() {
@@ -107,6 +108,16 @@ class _MyHomePageState extends State<MyHomePage> {
         SnackBar(content: Text('Authentication failed: $e')),
       );
     }
+  }
+
+  Future<void> _loadCachedData() async {
+    final cachedSongs = await SpotifyLikedSongsService.getCachedLikedSongs();
+    final lastSync = await SpotifyLikedSongsService.getLastSyncTime();
+    
+    setState(() {
+      _likedSongs = cachedSongs;
+      _lastSyncTime = lastSync;
+    });
   }
 
   Future<void> _checkSignInStatus() async {
@@ -141,60 +152,82 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _signOut() async {
     _likedSongsSubscription?.cancel();
     await SpotifyAuthService.signOut();
+    await SpotifyLikedSongsService.clearCache();
     setState(() {
       _isSignedIn = false;
       _accessToken = null;
       _likedSongs.clear();
       _totalLikedSongs = null;
-      _isLoadingLikedSongs = false;
+      _isSyncing = false;
+      _lastSyncTime = null;
     });
   }
 
-  Future<void> _fetchLikedSongs() async {
-    if (_isLoadingLikedSongs) return;
+  Future<void> _syncLikedSongs() async {
+    if (_isSyncing) return;
     
     setState(() {
-      _isLoadingLikedSongs = true;
+      _isSyncing = true;
       _likedSongs.clear();
     });
 
     try {
-      // Get total count first
       final total = await SpotifyLikedSongsService.getTotalLikedSongsCount();
       setState(() {
         _totalLikedSongs = total;
       });
 
-      // Start streaming liked songs
-      _likedSongsSubscription = SpotifyLikedSongsService.fetchLikedSongs().listen(
+      _likedSongsSubscription = SpotifyLikedSongsService.syncLikedSongs().listen(
         (batch) {
           setState(() {
             _likedSongs.addAll(batch);
           });
         },
         onError: (error) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error fetching liked songs: $error')),
-          );
+          if (error.toString().contains('Authentication expired')) {
+            setState(() {
+              _isSignedIn = false;
+              _accessToken = null;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired. Please sign in again.')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error syncing liked songs: $error')),
+            );
+          }
           setState(() {
-            _isLoadingLikedSongs = false;
+            _isSyncing = false;
           });
         },
-        onDone: () {
+        onDone: () async {
+          final lastSync = await SpotifyLikedSongsService.getLastSyncTime();
           setState(() {
-            _isLoadingLikedSongs = false;
+            _isSyncing = false;
+            _lastSyncTime = lastSync;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Loaded ${_likedSongs.length} liked songs!')),
+            SnackBar(content: Text('Synced ${_likedSongs.length} liked songs!')),
           );
         },
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (e.toString().contains('Authentication expired')) {
+        setState(() {
+          _isSignedIn = false;
+          _accessToken = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expired. Please sign in again.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
       setState(() {
-        _isLoadingLikedSongs = false;
+        _isSyncing = false;
       });
     }
   }
@@ -266,19 +299,57 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ],
                 const SizedBox(height: 20),
+                if (_likedSongs.isNotEmpty && !_isSyncing) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_likedSongs.length} songs cached',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        if (_lastSyncTime != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.schedule, size: 16, color: Colors.grey),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Last synced: ${_lastSyncTime!.toLocal().toString().split('.')[0]}',
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _isLoadingLikedSongs ? null : _fetchLikedSongs,
-                      icon: _isLoadingLikedSongs 
+                      onPressed: _isSyncing ? null : _syncLikedSongs,
+                      icon: _isSyncing 
                           ? const SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.favorite),
-                      label: Text(_isLoadingLikedSongs ? 'Loading...' : 'Get Liked Songs'),
+                          : const Icon(Icons.sync),
+                      label: Text(_isSyncing ? 'Syncing...' : 'Sync Liked Songs'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1DB954),
                         foregroundColor: Colors.white,
@@ -294,10 +365,10 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ],
                 ),
-                if (_totalLikedSongs != null) ...[
+                if (_totalLikedSongs != null && _isSyncing) ...[
                   const SizedBox(height: 20),
                   Text(
-                    'Progress: ${_likedSongs.length}/${_totalLikedSongs} songs loaded',
+                    'Progress: ${_likedSongs.length}/$_totalLikedSongs songs synced',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
