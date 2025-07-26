@@ -153,6 +153,8 @@ class _RatingScreenState extends State<RatingScreen> {
   late double _qualityRating;
   late double _valenceRating;
   late double _intensityRating;
+  List<LikedSong> _allSongs = [];
+  String? _activeSlider; // Track which slider is being dragged
 
   @override
   void initState() {
@@ -160,6 +162,14 @@ class _RatingScreenState extends State<RatingScreen> {
     _qualityRating = (widget.song.qualityRating ?? 0).toDouble();
     _valenceRating = (widget.song.valenceRating ?? 0).toDouble();
     _intensityRating = (widget.song.intensityRating ?? 0).toDouble();
+    _loadAllSongs();
+  }
+
+  Future<void> _loadAllSongs() async {
+    final songs = await SpotifyLikedSongsService.getCachedLikedSongs();
+    setState(() {
+      _allSongs = songs;
+    });
   }
 
   @override
@@ -257,6 +267,8 @@ class _RatingScreenState extends State<RatingScreen> {
                     _qualityRating,
                     Colors.blue,
                     (value) => setState(() => _qualityRating = value),
+                    onStart: () => setState(() => _activeSlider = 'quality'),
+                    onEnd: () => setState(() => _activeSlider = null),
                   ),
                   const SizedBox(height: 40),
                   _buildRatingSlider(
@@ -264,6 +276,8 @@ class _RatingScreenState extends State<RatingScreen> {
                     _valenceRating,
                     Colors.green,
                     (value) => setState(() => _valenceRating = value),
+                    onStart: () => setState(() => _activeSlider = 'valence'),
+                    onEnd: () => setState(() => _activeSlider = null),
                   ),
                   const SizedBox(height: 40),
                   _buildRatingSlider(
@@ -271,6 +285,8 @@ class _RatingScreenState extends State<RatingScreen> {
                     _intensityRating,
                     Colors.red,
                     (value) => setState(() => _intensityRating = value),
+                    onStart: () => setState(() => _activeSlider = 'intensity'),
+                    onEnd: () => setState(() => _activeSlider = null),
                   ),
                   const Spacer(),
                 ],
@@ -282,7 +298,105 @@ class _RatingScreenState extends State<RatingScreen> {
     );
   }
 
-  Widget _buildRatingSlider(String label, double value, Color color, ValueChanged<double> onChanged) {
+  List<LikedSong> _findSongsByRating(String parameter, int targetValue) {
+    return _allSongs.where((song) {
+      if (song.id == widget.song.id) return false; // Exclude current song
+      
+      int? songValue;
+      switch (parameter) {
+        case 'quality':
+          songValue = song.qualityRating;
+          break;
+        case 'valence':
+          songValue = song.valenceRating;
+          break;
+        case 'intensity':
+          songValue = song.intensityRating;
+          break;
+      }
+      return songValue == targetValue;
+    }).toList();
+  }
+
+  Widget _buildReferencePoints(String parameter, double currentValue) {
+    if (_activeSlider != parameter) return const SizedBox.shrink();
+    
+    final currentInt = currentValue.round();
+    final referenceSongs = {
+      'current': _findSongsByRating(parameter, currentInt),
+      'plus': _findSongsByRating(parameter, currentInt + 1),
+      'minus': _findSongsByRating(parameter, currentInt - 1),
+    };
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Reference Points',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...[
+            _buildReferenceRow('Current ($currentInt)', referenceSongs['current']!),
+            if (currentInt < 10) _buildReferenceRow('${currentInt + 1}', referenceSongs['plus']!),
+            if (currentInt > -10) _buildReferenceRow('${currentInt - 1}', referenceSongs['minus']!),
+          ].where((widget) => widget != null).cast<Widget>(),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildReferenceRow(String label, List<LikedSong> songs) {
+    if (songs.isEmpty) return null;
+    
+    final song = songs.first; // Take the first matching song
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '${song.name} - ${song.artists.join(', ')}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black87,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingSlider(String label, double value, Color color, ValueChanged<double> onChanged, {
+    VoidCallback? onStart,
+    VoidCallback? onEnd,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -335,6 +449,8 @@ class _RatingScreenState extends State<RatingScreen> {
                 activeColor: color,
                 inactiveColor: color.withValues(alpha: 0.3),
                 onChanged: onChanged,
+                onChangeStart: (value) => onStart?.call(),
+                onChangeEnd: (value) => onEnd?.call(),
               ),
             ),
             Text(
@@ -347,6 +463,7 @@ class _RatingScreenState extends State<RatingScreen> {
             ),
           ],
         ),
+        _buildReferencePoints(label.toLowerCase(), value),
       ],
     );
   }
