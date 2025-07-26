@@ -11,6 +11,9 @@ class LikedSong {
   final DateTime addedAt;
   final String? previewUrl;
   final int durationMs;
+  final int? qualityRating;
+  final int? valenceRating;
+  final int? intensityRating;
 
   LikedSong({
     required this.id,
@@ -20,6 +23,9 @@ class LikedSong {
     required this.addedAt,
     this.previewUrl,
     required this.durationMs,
+    this.qualityRating,
+    this.valenceRating,
+    this.intensityRating,
   });
 
   factory LikedSong.fromJson(Map<String, dynamic> json) {
@@ -46,6 +52,9 @@ class LikedSong {
       addedAt: DateTime.parse(json['addedAt']),
       previewUrl: json['previewUrl'],
       durationMs: json['durationMs'],
+      qualityRating: json['qualityRating'],
+      valenceRating: json['valenceRating'],
+      intensityRating: json['intensityRating'],
     );
   }
 
@@ -58,6 +67,9 @@ class LikedSong {
       'addedAt': addedAt.toIso8601String(),
       'previewUrl': previewUrl,
       'durationMs': durationMs,
+      'qualityRating': qualityRating,
+      'valenceRating': valenceRating,
+      'intensityRating': intensityRating,
     };
   }
 }
@@ -183,6 +195,29 @@ class SpotifyLikedSongsService {
     return cachedSongs
         .map((song) => song.addedAt)
         .reduce((a, b) => a.isAfter(b) ? a : b);
+  }
+
+  static Future<void> updateSongRatings(String songId, {int? quality, int? valence, int? intensity}) async {
+    final cachedSongs = await getCachedLikedSongs();
+    final updatedSongs = cachedSongs.map((song) {
+      if (song.id == songId) {
+        return LikedSong(
+          id: song.id,
+          name: song.name,
+          artists: song.artists,
+          album: song.album,
+          addedAt: song.addedAt,
+          previewUrl: song.previewUrl,
+          durationMs: song.durationMs,
+          qualityRating: quality ?? song.qualityRating,
+          valenceRating: valence ?? song.valenceRating,
+          intensityRating: intensity ?? song.intensityRating,
+        );
+      }
+      return song;
+    }).toList();
+    
+    await saveLikedSongs(updatedSongs);
   }
 
   static Stream<List<LikedSong>> syncLikedSongs() async* {

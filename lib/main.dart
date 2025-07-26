@@ -59,8 +59,9 @@ class MyHomePage extends StatefulWidget {
 
 class _SongListItem extends StatelessWidget {
   final LikedSong song;
+  final VoidCallback? onTap;
   
-  const _SongListItem({required this.song});
+  const _SongListItem({required this.song, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +75,8 @@ class _SongListItem extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
       child: ListTile(
-        dense: true, // More compact layout
+        dense: true,
+        onTap: onTap,
         leading: const Icon(
           Icons.music_note,
           color: Color(0xFF1DB954),
@@ -86,11 +88,32 @@ class _SongListItem extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
-          '$artistsText • ${song.album}',
-          style: const TextStyle(fontSize: 12),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$artistsText • ${song.album}',
+              style: const TextStyle(fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (song.qualityRating != null || song.valenceRating != null || song.intensityRating != null)
+              Row(
+                children: [
+                  if (song.qualityRating != null) 
+                    Text('Q:${song.qualityRating}', style: const TextStyle(fontSize: 10, color: Colors.blue)),
+                  if (song.qualityRating != null && (song.valenceRating != null || song.intensityRating != null))
+                    const Text(' ', style: TextStyle(fontSize: 10)),
+                  if (song.valenceRating != null)
+                    Text('V:${song.valenceRating}', style: const TextStyle(fontSize: 10, color: Colors.green)),
+                  if (song.valenceRating != null && song.intensityRating != null)
+                    const Text(' ', style: TextStyle(fontSize: 10)),
+                  if (song.intensityRating != null)
+                    Text('I:${song.intensityRating}', style: const TextStyle(fontSize: 10, color: Colors.red)),
+                ],
+              ),
+          ],
         ),
         trailing: Column(
           mainAxisSize: MainAxisSize.min,
@@ -113,6 +136,144 @@ class _SongListItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RatingDialog extends StatefulWidget {
+  final LikedSong song;
+  
+  const _RatingDialog({required this.song});
+
+  @override
+  State<_RatingDialog> createState() => _RatingDialogState();
+}
+
+class _RatingDialogState extends State<_RatingDialog> {
+  late double _qualityRating;
+  late double _valenceRating;
+  late double _intensityRating;
+
+  @override
+  void initState() {
+    super.initState();
+    _qualityRating = (widget.song.qualityRating ?? 0).toDouble();
+    _valenceRating = (widget.song.valenceRating ?? 0).toDouble();
+    _intensityRating = (widget.song.intensityRating ?? 0).toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            widget.song.name,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            widget.song.artists.join(', '),
+            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildRatingSlider(
+              'Quality',
+              _qualityRating,
+              Colors.blue,
+              (value) => setState(() => _qualityRating = value),
+            ),
+            const SizedBox(height: 20),
+            _buildRatingSlider(
+              'Valence',
+              _valenceRating,
+              Colors.green,
+              (value) => setState(() => _valenceRating = value),
+            ),
+            const SizedBox(height: 20),
+            _buildRatingSlider(
+              'Intensity',
+              _intensityRating,
+              Colors.red,
+              (value) => setState(() => _intensityRating = value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            await SpotifyLikedSongsService.updateSongRatings(
+              widget.song.id,
+              quality: _qualityRating.round(),
+              valence: _valenceRating.round(),
+              intensity: _intensityRating.round(),
+            );
+            if (mounted) {
+              Navigator.of(context).pop(true);
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1DB954),
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRatingSlider(String label, double value, Color color, ValueChanged<double> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: color),
+            ),
+            Text(
+              value.round().toString(),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text('-10', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Expanded(
+              child: Slider(
+                value: value,
+                min: -10,
+                max: 10,
+                divisions: 20,
+                activeColor: color,
+                inactiveColor: color.withValues(alpha: 0.3),
+                onChanged: onChanged,
+              ),
+            ),
+            const Text('10', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -223,6 +384,17 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> _showRatingDialog(LikedSong song) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => _RatingDialog(song: song),
+    );
+    
+    if (result == true) {
+      await _loadCachedData();
+    }
+  }
+
   Future<void> _syncLikedSongs() async {
     if (_isSyncing) return;
     
@@ -331,7 +503,10 @@ class _MyHomePageState extends State<MyHomePage> {
           itemCount: _likedSongs.length,
           itemBuilder: (context, index) {
             final song = _likedSongs[index];
-            return _SongListItem(song: song);
+            return _SongListItem(
+              song: song,
+              onTap: () => _showRatingDialog(song),
+            );
           },
         ),
         floatingActionButton: Column(
