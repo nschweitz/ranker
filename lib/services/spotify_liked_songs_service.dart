@@ -197,7 +197,6 @@ class SpotifyLikedSongsService {
 
     String? nextUrl = '$baseUrl/me/tracks?limit=$limit';
     List<LikedSong> newSongs = [];
-    List<LikedSong> allSongs = List.from(cachedSongs);
 
     while (nextUrl != null) {
       try {
@@ -225,13 +224,10 @@ class SpotifyLikedSongsService {
             }
             
             newSongs.addAll(newerSongs);
-            // Add new songs to the beginning since they're newer
-            allSongs.insertAll(0, newerSongs);
             yield newerSongs;
           } else {
             // First sync - get everything
             newSongs.addAll(batch);
-            allSongs.addAll(batch);
             yield batch;
           }
           
@@ -250,8 +246,10 @@ class SpotifyLikedSongsService {
       }
     }
 
-    // Only save if we actually got new songs or this is a first sync
+    // Save the combined list if we got new songs or this is a first sync
     if (newSongs.isNotEmpty || cachedSongs.isEmpty) {
+      // Combine new songs (at the beginning) with cached songs
+      final allSongs = [...newSongs, ...cachedSongs];
       await saveLikedSongs(allSongs);
     }
   }

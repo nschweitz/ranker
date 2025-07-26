@@ -57,6 +57,66 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+class _SongListItem extends StatelessWidget {
+  final LikedSong song;
+  
+  const _SongListItem({required this.song});
+
+  @override
+  Widget build(BuildContext context) {
+    // Pre-calculate formatted strings to avoid computation during scrolling
+    final formattedDate = song.addedAt.toLocal().toString().split(' ')[0];
+    final minutes = (song.durationMs / 60000).floor();
+    final seconds = ((song.durationMs % 60000) / 1000).floor();
+    final formattedDuration = '$minutes:${seconds.toString().padLeft(2, '0')}';
+    final artistsText = song.artists.join(', ');
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+      child: ListTile(
+        dense: true, // More compact layout
+        leading: const Icon(
+          Icons.music_note,
+          color: Color(0xFF1DB954),
+          size: 20,
+        ),
+        title: Text(
+          song.name,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '$artistsText • ${song.album}',
+          style: const TextStyle(fontSize: 12),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formattedDuration,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+            Text(
+              formattedDate,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MyHomePageState extends State<MyHomePage> {
   bool _isSignedIn = false;
   bool _isLoading = false;
@@ -168,10 +228,16 @@ class _MyHomePageState extends State<MyHomePage> {
     
     setState(() {
       _isSyncing = true;
-      _likedSongs.clear();
     });
 
     try {
+      // Load cached songs first to display them immediately
+      final cachedSongs = await SpotifyLikedSongsService.getCachedLikedSongs();
+      setState(() {
+        _likedSongs.clear();
+        _likedSongs.addAll(cachedSongs);
+      });
+
       final total = await SpotifyLikedSongsService.getTotalLikedSongsCount();
       setState(() {
         _totalLikedSongs = total;
@@ -180,7 +246,8 @@ class _MyHomePageState extends State<MyHomePage> {
       _likedSongsSubscription = SpotifyLikedSongsService.syncLikedSongs().listen(
         (batch) {
           setState(() {
-            _likedSongs.addAll(batch);
+            // Insert new songs at the beginning since they're newer
+            _likedSongs.insertAll(0, batch);
           });
         },
         onError: (error) {
@@ -241,6 +308,70 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // If we have songs, show the full-screen songs list
+    if (_likedSongs.isNotEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: Text('${_likedSongs.length} Liked Songs'),
+          actions: [
+            if (_lastSyncTime != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Center(
+                  child: Text(
+                    'Last sync: ${_lastSyncTime!.toLocal().toString().split(' ')[0]}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        body: ListView.builder(
+          itemCount: _likedSongs.length,
+          itemBuilder: (context, index) {
+            final song = _likedSongs[index];
+            return _SongListItem(song: song);
+          },
+        ),
+        floatingActionButton: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isSyncing && _totalLikedSongs != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_likedSongs.length}/$_totalLikedSongs',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            if (_isSyncing && _totalLikedSongs != null)
+              const SizedBox(height: 8),
+            FloatingActionButton(
+              onPressed: _isSyncing ? null : _syncLikedSongs,
+              backgroundColor: _isSyncing ? Colors.grey : const Color(0xFF1DB954),
+              child: _isSyncing
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.sync, color: Colors.white),
+            ),
+          ],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      );
+    }
+
+    // Default view when no songs are loaded
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -274,69 +405,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   'Successfully signed in to Spotify!',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 10),
-                if (_accessToken != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Access Token:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          '${_accessToken!.substring(0, 20)}...',
-                          style: const TextStyle(fontFamily: 'monospace'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 20),
-                if (_likedSongs.isNotEmpty && !_isSyncing) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.info_outline, size: 16, color: Colors.grey),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${_likedSongs.length} songs cached',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        if (_lastSyncTime != null) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.schedule, size: 16, color: Colors.grey),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Last synced: ${_lastSyncTime!.toLocal().toString().split('.')[0]}',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -400,53 +469,6 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                         ),
                       ),
-              ],
-              if (_likedSongs.isNotEmpty) ...[
-                const SizedBox(height: 30),
-                const Divider(),
-                const SizedBox(height: 20),
-                Text(
-                  'Your Liked Songs',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 20),
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _likedSongs.length,
-                  itemBuilder: (context, index) {
-                    final song = _likedSongs[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.music_note,
-                          color: Color(0xFF1DB954),
-                        ),
-                        title: Text(
-                          song.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Artists: ${song.artists.join(', ')}'),
-                            Text('Album: ${song.album}'),
-                            Text('Added: ${song.addedAt.toLocal().toString().split(' ')[0]}'),
-                          ],
-                        ),
-                        trailing: Text(
-                          '${(song.durationMs / 60000).floor()}:${((song.durationMs % 60000) / 1000).floor().toString().padLeft(2, '0')}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        isThreeLine: true,
-                      ),
-                    );
-                  },
-                ),
               ],
             ],
           ),
