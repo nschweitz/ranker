@@ -67,57 +67,10 @@ class _RatingScreenState extends State<RatingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.music_note,
-                      color: Color(0xFF1DB954),
-                      size: 40,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.song.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.song.artists.join(', '),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.song.album,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[500],
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            Column(
+              children: [
+                _buildSurroundingReferencePoints(),
+              ],
             ),
             const SizedBox(height: 40),
             Expanded(
@@ -177,6 +130,205 @@ class _RatingScreenState extends State<RatingScreen> {
       }
       return songValue == targetValue;
     }).toList();
+  }
+
+  Widget _buildSurroundingReferencePoints() {
+    if (_activeSlider == null) {
+      return _buildCurrentSongCard();
+    }
+
+    final parameter = _activeSlider!;
+    double currentValue;
+    switch (parameter) {
+      case 'quality':
+        currentValue = _qualityRating;
+        break;
+      case 'valence':
+        currentValue = _valenceRating;
+        break;
+      case 'intensity':
+        currentValue = _intensityRating;
+        break;
+      default:
+        return _buildCurrentSongCard();
+    }
+
+    final currentInt = currentValue.round();
+    
+    return Column(
+      children: [
+        // Song with $CURRENT_VALUE + 1
+        _buildReferenceSongCard(parameter, currentInt + 1),
+        const SizedBox(height: 8),
+        // Current song being rated
+        _buildCurrentSongCard(),
+        const SizedBox(height: 8),
+        // Song with $CURRENT_VALUE
+        _buildReferenceSongCard(parameter, currentInt),
+        const SizedBox(height: 8),
+        // Song with $CURRENT_VALUE - 1
+        _buildReferenceSongCard(parameter, currentInt - 1),
+      ],
+    );
+  }
+
+  Widget _buildCurrentSongCard() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.music_note,
+              color: Color(0xFF1DB954),
+              size: 40,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.song.name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.song.artists.join(', '),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.song.album,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReferenceSongCard(String parameter, int targetValue) {
+    final songs = _findSongsByRating(parameter, targetValue);
+    
+    if (songs.isEmpty) {
+      return Container(
+        height: 80,
+        child: Card(
+          elevation: 1,
+          color: Colors.grey[100],
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.music_note_outlined,
+                  color: Colors.grey[400],
+                  size: 40,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'No songs with rating $targetValue',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[500],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final song = songs.first;
+    return Card(
+      elevation: 1,
+      color: Colors.blue[50],
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(
+              Icons.music_note_outlined,
+              color: Colors.blue[600],
+              size: 40,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          targetValue.toString(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[800],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          song.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    song.artists.join(', '),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildReferencePoints(String parameter, double currentValue) {
@@ -324,7 +476,6 @@ class _RatingScreenState extends State<RatingScreen> {
             ),
           ],
         ),
-        _buildReferencePoints(label.toLowerCase(), value),
       ],
     );
   }
