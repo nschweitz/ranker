@@ -46,6 +46,9 @@ dependencies:
   
   # Crypto for PKCE S256 hashing
   crypto: ^3.0.3
+  
+  # Deep linking for OAuth callbacks
+  app_links: ^6.3.2
 
 dev_dependencies:
   flutter_test:

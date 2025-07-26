@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:app_links/app_links.dart';
+import 'dart:async';
 import 'services/spotify_auth_service.dart';
 
 void main() {
@@ -59,23 +61,31 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _isSignedIn = false;
   bool _isLoading = false;
   String? _accessToken;
+  StreamSubscription? _linkSubscription;
+  late AppLinks _appLinks;
 
   @override
   void initState() {
     super.initState();
+    _appLinks = AppLinks();
     _checkSignInStatus();
     _handleIncomingLinks();
   }
 
   void _handleIncomingLinks() {
-    SystemChannels.lifecycle.setMessageHandler((message) async {
-      if (message == AppLifecycleState.resumed.toString()) {
-        final initialLink = Uri.base.toString();
-        if (initialLink.startsWith('http://localhost:8080')) {
-          _handleCallback(Uri.parse(initialLink));
-        }
+    _linkSubscription = _appLinks.uriLinkStream.listen((Uri uri) {
+      if (uri.toString().startsWith('http://localhost:8080')) {
+        _handleCallback(uri);
       }
-      return null;
+    }, onError: (Object err) {
+      print('Deep link error: $err');
+    });
+    
+    // Handle initial link if app was launched from a deep link
+    _appLinks.getInitialLink().then((Uri? uri) {
+      if (uri != null && uri.toString().startsWith('http://localhost:8080')) {
+        _handleCallback(uri);
+      }
     });
   }
 
@@ -128,6 +138,12 @@ class _MyHomePageState extends State<MyHomePage> {
       _isSignedIn = false;
       _accessToken = null;
     });
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
   }
 
   @override
