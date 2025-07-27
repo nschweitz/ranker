@@ -55,21 +55,34 @@ class _RatingScreenState extends State<RatingScreen> {
     return null;
   }
 
+  Future<void> _saveRatings() async {
+    await SpotifyLikedSongsService.updateSongRatings(
+      widget.song.id,
+      quality: _qualityRating,
+      valence: _valenceRating,
+      intensity: _intensityRating,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           title: const Text('Rate Song'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              await _saveRatings();
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
         actions: [
           TextButton(
             onPressed: () async {
-              await SpotifyLikedSongsService.updateSongRatings(
-                widget.song.id,
-                quality: _qualityRating,
-                valence: _valenceRating,
-                intensity: _intensityRating,
-              );
+              await _saveRatings();
               
               if (mounted) {
                 final nextSong = _findNextUnratedSong();
