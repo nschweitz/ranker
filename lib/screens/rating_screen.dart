@@ -1,6 +1,116 @@
 import 'package:flutter/material.dart';
 import '../services/spotify_liked_songs_service.dart';
 
+class CustomSliderThumbShape extends SliderComponentShape {
+  final double thumbRadius;
+  final double value;
+  final Color color;
+  final String aspectName;
+  final bool isDragging;
+
+  const CustomSliderThumbShape({
+    required this.thumbRadius,
+    required this.value,
+    required this.color,
+    required this.aspectName,
+    required this.isDragging,
+  });
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) {
+    return Size.fromRadius(thumbRadius + (isDragging ? 25 : 0)); // Extra space when dragging
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final Canvas canvas = context.canvas;
+
+    // Draw the thumb circle
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawCircle(center, thumbRadius, paint);
+
+    // Draw white border
+    final borderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    
+    canvas.drawCircle(center, thumbRadius, borderPaint);
+
+    // Draw the aspect name and value pill
+    final pillText = '$aspectName: ${this.value.toStringAsFixed(1)}';
+    final textSpan = TextSpan(
+      text: pillText,
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+    
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    );
+    
+    textPainter.layout();
+    
+    // Position the pill - inline when not dragging, above when dragging
+    final pillVerticalOffset = isDragging ? -thumbRadius - 30 : 0;
+    final pillCenter = Offset(center.dx, center.dy + pillVerticalOffset);
+    
+    // Draw pill background
+    final pillWidth = textPainter.width + 16;
+    final pillHeight = textPainter.height + 8;
+    final pillRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: pillCenter,
+        width: pillWidth,
+        height: pillHeight,
+      ),
+      Radius.circular(pillHeight / 2),
+    );
+    
+    final pillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawRRect(pillRect, pillPaint);
+    
+    // Draw pill border
+    final pillBorderPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    
+    canvas.drawRRect(pillRect, pillBorderPaint);
+    
+    // Draw text
+    final textOffset = Offset(
+      pillCenter.dx - textPainter.width / 2,
+      pillCenter.dy - textPainter.height / 2,
+    );
+    
+    textPainter.paint(canvas, textOffset);
+  }
+}
+
 class RatingScreen extends StatefulWidget {
   final LikedSong song;
   
@@ -14,6 +124,8 @@ class _RatingScreenState extends State<RatingScreen> {
   late double _qualityRating;
   late double _valenceRating;
   late double _intensityRating;
+  late double _accessibilityRating;
+  late double _syntheticRating;
   List<LikedSong> _allSongs = [];
   String? _activeSlider; // Track which slider is being dragged
 
@@ -35,6 +147,8 @@ class _RatingScreenState extends State<RatingScreen> {
       _qualityRating = (currentSong.qualityRating ?? 0).toDouble();
       _valenceRating = (currentSong.valenceRating ?? 0).toDouble();
       _intensityRating = (currentSong.intensityRating ?? 0).toDouble();
+      _accessibilityRating = (currentSong.accessibilityRating ?? 0).toDouble();
+      _syntheticRating = (currentSong.syntheticRating ?? 0).toDouble();
     });
   }
 
@@ -48,7 +162,7 @@ class _RatingScreenState extends State<RatingScreen> {
   LikedSong? _findNextUnratedSong() {
     for (final song in _allSongs) {
       if (song.id != widget.song.id && 
-          (song.qualityRating == null || song.valenceRating == null || song.intensityRating == null)) {
+          (song.qualityRating == null || song.valenceRating == null || song.intensityRating == null || song.accessibilityRating == null || song.syntheticRating == null)) {
         return song;
       }
     }
@@ -61,6 +175,8 @@ class _RatingScreenState extends State<RatingScreen> {
       quality: _qualityRating,
       valence: _valenceRating,
       intensity: _intensityRating,
+      accessibility: _accessibilityRating,
+      synthetic: _syntheticRating,
     );
   }
 
@@ -131,7 +247,7 @@ class _RatingScreenState extends State<RatingScreen> {
                     onStart: () => setState(() => _activeSlider = 'quality'),
                     onEnd: () => setState(() => _activeSlider = null),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                   _buildRatingSlider(
                     'Valence',
                     _valenceRating,
@@ -140,13 +256,31 @@ class _RatingScreenState extends State<RatingScreen> {
                     onStart: () => setState(() => _activeSlider = 'valence'),
                     onEnd: () => setState(() => _activeSlider = null),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
                   _buildRatingSlider(
                     'Intensity',
                     _intensityRating,
                     Colors.red,
                     (value) => setState(() => _intensityRating = value),
                     onStart: () => setState(() => _activeSlider = 'intensity'),
+                    onEnd: () => setState(() => _activeSlider = null),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildRatingSlider(
+                    'Accessibility',
+                    _accessibilityRating,
+                    Colors.purple,
+                    (value) => setState(() => _accessibilityRating = value),
+                    onStart: () => setState(() => _activeSlider = 'accessibility'),
+                    onEnd: () => setState(() => _activeSlider = null),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildRatingSlider(
+                    'Synthetic',
+                    _syntheticRating,
+                    Colors.orange,
+                    (value) => setState(() => _syntheticRating = value),
+                    onStart: () => setState(() => _activeSlider = 'synthetic'),
                     onEnd: () => setState(() => _activeSlider = null),
                   ),
                   const Spacer(),
@@ -174,6 +308,12 @@ class _RatingScreenState extends State<RatingScreen> {
         case 'intensity':
           songValue = song.intensityRating;
           break;
+        case 'accessibility':
+          songValue = song.accessibilityRating;
+          break;
+        case 'synthetic':
+          songValue = song.syntheticRating;
+          break;
       }
       
       if (songValue == null) return false;
@@ -198,6 +338,14 @@ class _RatingScreenState extends State<RatingScreen> {
         case 'intensity':
           aValue = a.intensityRating!;
           bValue = b.intensityRating!;
+          break;
+        case 'accessibility':
+          aValue = a.accessibilityRating!;
+          bValue = b.accessibilityRating!;
+          break;
+        case 'synthetic':
+          aValue = a.syntheticRating!;
+          bValue = b.syntheticRating!;
           break;
       }
       
@@ -225,6 +373,12 @@ class _RatingScreenState extends State<RatingScreen> {
           break;
         case 'intensity':
           currentValue = _intensityRating;
+          break;
+        case 'accessibility':
+          currentValue = _accessibilityRating;
+          break;
+        case 'synthetic':
+          currentValue = _syntheticRating;
           break;
       }
     }
@@ -468,72 +622,30 @@ class _RatingScreenState extends State<RatingScreen> {
     VoidCallback? onStart,
     VoidCallback? onEnd,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                value.toStringAsFixed(1),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ),
-          ],
+    // Determine if this slider is being dragged
+    final isDragging = _activeSlider == label.toLowerCase();
+    
+    return SliderTheme(
+      data: SliderTheme.of(context).copyWith(
+        thumbShape: CustomSliderThumbShape(
+          thumbRadius: 14.0,
+          value: value,
+          color: color,
+          aspectName: label,
+          isDragging: isDragging,
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Text(
-              '-9',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Expanded(
-              child: Slider(
-                value: value,
-                min: -9.0,
-                max: 9.0,
-                activeColor: color,
-                inactiveColor: color.withValues(alpha: 0.3),
-                onChanged: onChanged,
-                onChangeStart: (value) => onStart?.call(),
-                onChangeEnd: (value) => onEnd?.call(),
-              ),
-            ),
-            Text(
-              '9',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
+        overlayShape: RoundSliderOverlayShape(overlayRadius: 20.0),
+      ),
+      child: Slider(
+        value: value,
+        min: -9.0,
+        max: 9.0,
+        activeColor: color,
+        inactiveColor: color.withValues(alpha: 0.3),
+        onChanged: onChanged,
+        onChangeStart: (value) => onStart?.call(),
+        onChangeEnd: (value) => onEnd?.call(),
+      ),
     );
   }
 }

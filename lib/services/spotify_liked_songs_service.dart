@@ -14,6 +14,8 @@ class LikedSong {
   final double? qualityRating;
   final double? valenceRating;
   final double? intensityRating;
+  final double? accessibilityRating;
+  final double? syntheticRating;
 
   LikedSong({
     required this.id,
@@ -26,6 +28,8 @@ class LikedSong {
     this.qualityRating,
     this.valenceRating,
     this.intensityRating,
+    this.accessibilityRating,
+    this.syntheticRating,
   });
 
   factory LikedSong.fromJson(Map<String, dynamic> json) {
@@ -55,6 +59,8 @@ class LikedSong {
       qualityRating: json['qualityRating'],
       valenceRating: json['valenceRating'],
       intensityRating: json['intensityRating'],
+      accessibilityRating: json['accessibilityRating'],
+      syntheticRating: json['syntheticRating'],
     );
   }
 
@@ -70,6 +76,8 @@ class LikedSong {
       'qualityRating': qualityRating,
       'valenceRating': valenceRating,
       'intensityRating': intensityRating,
+      'accessibilityRating': accessibilityRating,
+      'syntheticRating': syntheticRating,
     };
   }
 }
@@ -197,7 +205,7 @@ class SpotifyLikedSongsService {
         .reduce((a, b) => a.isAfter(b) ? a : b);
   }
 
-  static Future<void> updateSongRatings(String songId, {double? quality, double? valence, double? intensity}) async {
+  static Future<void> updateSongRatings(String songId, {double? quality, double? valence, double? intensity, double? accessibility, double? synthetic}) async {
     final cachedSongs = await getCachedLikedSongs();
     final updatedSongs = cachedSongs.map((song) {
       if (song.id == songId) {
@@ -212,6 +220,8 @@ class SpotifyLikedSongsService {
           qualityRating: quality ?? song.qualityRating,
           valenceRating: valence ?? song.valenceRating,
           intensityRating: intensity ?? song.intensityRating,
+          accessibilityRating: accessibility ?? song.accessibilityRating,
+          syntheticRating: synthetic ?? song.syntheticRating,
         );
       }
       return song;
