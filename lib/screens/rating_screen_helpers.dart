@@ -312,6 +312,21 @@ class RatingScreenHelpers {
           padding: const EdgeInsets.all(12.0),
           child: Row(
             children: [
+              // Add glyph for reference song
+              if (song.qualityRating != null && song.valenceRating != null && 
+                  song.intensityRating != null && song.accessibilityRating != null && 
+                  song.syntheticRating != null)
+                Container(
+                  margin: const EdgeInsets.only(right: 12.0),
+                  child: SongGlyph(
+                    quality: song.qualityRating!,
+                    valence: song.valenceRating!,
+                    intensity: song.intensityRating!,
+                    accessibility: song.accessibilityRating!,
+                    syntheticness: song.syntheticRating!,
+                    size: 48.0, // Slightly smaller than current song
+                  ),
+                ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -192,29 +192,92 @@ class _MyHomePageState extends State<MyHomePage> {
           comparison = a.addedAt.compareTo(b.addedAt);
           break;
         case SortCriteria.quality:
-          final aRating = a.qualityRating ?? -10.0;
-          final bRating = b.qualityRating ?? -10.0;
-          comparison = aRating.compareTo(bRating);
+          final aRating = a.qualityRating;
+          final bRating = b.qualityRating;
+          
+          // If both have ratings, compare them
+          if (aRating != null && bRating != null) {
+            comparison = aRating.compareTo(bRating);
+          }
+          // If only one has a rating, the one with rating comes first
+          else if (aRating != null && bRating == null) {
+            return _currentSortOrder == SortOrder.ascending ? -1 : -1;
+          }
+          else if (aRating == null && bRating != null) {
+            return _currentSortOrder == SortOrder.ascending ? 1 : 1;
+          }
+          // If both are null, maintain original order (by addedAt)
+          else {
+            comparison = a.addedAt.compareTo(b.addedAt);
+          }
           break;
         case SortCriteria.valence:
-          final aRating = a.valenceRating ?? -10.0;
-          final bRating = b.valenceRating ?? -10.0;
-          comparison = aRating.compareTo(bRating);
+          final aRating = a.valenceRating;
+          final bRating = b.valenceRating;
+          
+          if (aRating != null && bRating != null) {
+            comparison = aRating.compareTo(bRating);
+          }
+          else if (aRating != null && bRating == null) {
+            return _currentSortOrder == SortOrder.ascending ? -1 : -1;
+          }
+          else if (aRating == null && bRating != null) {
+            return _currentSortOrder == SortOrder.ascending ? 1 : 1;
+          }
+          else {
+            comparison = a.addedAt.compareTo(b.addedAt);
+          }
           break;
         case SortCriteria.intensity:
-          final aRating = a.intensityRating ?? -10.0;
-          final bRating = b.intensityRating ?? -10.0;
-          comparison = aRating.compareTo(bRating);
+          final aRating = a.intensityRating;
+          final bRating = b.intensityRating;
+          
+          if (aRating != null && bRating != null) {
+            comparison = aRating.compareTo(bRating);
+          }
+          else if (aRating != null && bRating == null) {
+            return _currentSortOrder == SortOrder.ascending ? -1 : -1;
+          }
+          else if (aRating == null && bRating != null) {
+            return _currentSortOrder == SortOrder.ascending ? 1 : 1;
+          }
+          else {
+            comparison = a.addedAt.compareTo(b.addedAt);
+          }
           break;
         case SortCriteria.accessibility:
-          final aRating = a.accessibilityRating ?? -10.0;
-          final bRating = b.accessibilityRating ?? -10.0;
-          comparison = aRating.compareTo(bRating);
+          final aRating = a.accessibilityRating;
+          final bRating = b.accessibilityRating;
+          
+          if (aRating != null && bRating != null) {
+            comparison = aRating.compareTo(bRating);
+          }
+          else if (aRating != null && bRating == null) {
+            return _currentSortOrder == SortOrder.ascending ? -1 : -1;
+          }
+          else if (aRating == null && bRating != null) {
+            return _currentSortOrder == SortOrder.ascending ? 1 : 1;
+          }
+          else {
+            comparison = a.addedAt.compareTo(b.addedAt);
+          }
           break;
         case SortCriteria.synthetic:
-          final aRating = a.syntheticRating ?? -10.0;
-          final bRating = b.syntheticRating ?? -10.0;
-          comparison = aRating.compareTo(bRating);
+          final aRating = a.syntheticRating;
+          final bRating = b.syntheticRating;
+          
+          if (aRating != null && bRating != null) {
+            comparison = aRating.compareTo(bRating);
+          }
+          else if (aRating != null && bRating == null) {
+            return _currentSortOrder == SortOrder.ascending ? -1 : -1;
+          }
+          else if (aRating == null && bRating != null) {
+            return _currentSortOrder == SortOrder.ascending ? 1 : 1;
+          }
+          else {
+            comparison = a.addedAt.compareTo(b.addedAt);
+          }
           break;
       }
       
