@@ -65,6 +65,7 @@ class SongSymbolPainter extends CustomPainter {
     final rings = _getRingCount(normalizedQuality);
     final starPoints = _getStarPoints(normalizedIntensity);
     final baseRadius = size.width * 0.4375; // 28/64 ratio from original
+    final qualityAlpha = _getQualityAlpha(quality);
 
     // Draw multiple rings both inside and outside the base shape
     for (int ring = 0; ring < rings; ring++) {
@@ -85,6 +86,7 @@ class SongSymbolPainter extends CustomPainter {
           valenceHue,
           math.max(0.1, (rings - ring) / rings * 0.8),
           1.0,
+          qualityAlpha,
         );
       }
       
@@ -103,12 +105,13 @@ class SongSymbolPainter extends CustomPainter {
           valenceHue,
           math.max(0.1, (rings - ring) / rings * 0.6),
           1.0,
+          qualityAlpha,
         );
       }
     }
     
     // Add accessibility outer ring
-    _addAccessibilityRing(canvas, center, valenceHue, baseRadius, rings, starPoints, normalizedAccessibility, size.width / 2);
+    _addAccessibilityRing(canvas, center, valenceHue, baseRadius, rings, starPoints, normalizedAccessibility, size.width / 2, qualityAlpha);
   }
 
   double _getValenceHue(double normalizedValence) {
@@ -161,7 +164,19 @@ class SongSymbolPainter extends CustomPainter {
     }
   }
 
-  void _addAccessibilityRing(Canvas canvas, Offset center, double valenceHue, double baseRadius, int rings, int starPoints, double accessibility, double maxRadius) {
+  double _getQualityAlpha(double quality) {
+    if (quality <= 4.0) {
+      // From -9 to 4: alpha goes from 0.4 to 0.5
+      final progress = (quality + 9) / 13; // 0-1 for quality -9 to 4
+      return 0.4 + (progress * 0.1); // 0.4 to 0.5
+    } else {
+      // From 4 to 9: alpha goes from 0.5 to 1.0
+      final progress = (quality - 4) / 5; // 0-1 for quality 4 to 9
+      return 0.5 + (progress * 0.5); // 0.5 to 1.0
+    }
+  }
+
+  void _addAccessibilityRing(Canvas canvas, Offset center, double valenceHue, double baseRadius, int rings, int starPoints, double accessibility, double maxRadius, double qualityAlpha) {
     // Position outer ring closer to prevent cutoff
     final outerRingRadius = math.min(maxRadius - 2, baseRadius + rings * 2 + 2);
     
@@ -179,10 +194,11 @@ class SongSymbolPainter extends CustomPainter {
       ringPoints,
       spikeHeight,
       valenceHue,
+      qualityAlpha,
     );
   }
 
-  void _drawAccessibilitySpikes(Canvas canvas, Offset center, double baseRadius, int spikeCount, double spikeHeight, double valenceHue) {
+  void _drawAccessibilitySpikes(Canvas canvas, Offset center, double baseRadius, int spikeCount, double spikeHeight, double valenceHue, double qualityAlpha) {
     final path = Path();
     final angleStep = (math.pi * 2) / spikeCount;
     
@@ -206,14 +222,14 @@ class SongSymbolPainter extends CustomPainter {
     
     path.close();
     final paint = Paint()
-      ..color = HSLColor.fromAHSL(0.8, valenceHue, 0.6, 0.7).toColor()
+      ..color = HSLColor.fromAHSL(qualityAlpha, valenceHue, 0.6, 0.7).toColor()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     
     canvas.drawPath(path, paint);
   }
 
-  void _drawStarPath(Canvas canvas, Offset center, double outerRadius, double innerRadius, int points, double syntheticness, double valenceHue, double opacity, double strokeWidth) {
+  void _drawStarPath(Canvas canvas, Offset center, double outerRadius, double innerRadius, int points, double syntheticness, double valenceHue, double opacity, double strokeWidth, double qualityAlpha) {
     final path = Path();
     final angleStep = (math.pi * 2) / points;
     
@@ -251,7 +267,7 @@ class SongSymbolPainter extends CustomPainter {
     path.close();
     
     final paint = Paint()
-      ..color = HSLColor.fromAHSL(opacity, valenceHue, 0.8, 0.6).toColor()
+      ..color = HSLColor.fromAHSL(opacity * qualityAlpha, valenceHue, 0.8, 0.6).toColor()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
     
