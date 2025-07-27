@@ -145,7 +145,20 @@ class SongSymbolPainter extends CustomPainter {
   }
 
   int _getStarPoints(double normalizedIntensity) {
-    return math.max(3, (normalizedIntensity * 12 + 3).ceil());
+    // Convert back to [-9, 9] range to work with original intensity values
+    final intensityOriginal = normalizedIntensity * 18 - 9;
+    
+    if (intensityOriginal <= 3.0) {
+      // Barely increase until intensity 3: 3-5 points for intensity -9 to 3
+      final progress = (intensityOriginal + 9) / 12; // 0-1 for intensity -9 to 3
+      return 3 + (progress * 2).round(); // 3-5 points
+    } else {
+      // Exponential scale after intensity 3: 5-15 points for intensity 3 to 9
+      final excessIntensity = intensityOriginal - 3.0; // 0-6 range
+      final normalizedExcess = excessIntensity / 6.0; // 0-1 range
+      final exponentialValue = math.pow(normalizedExcess, 2.0); // Exponential curve
+      return 5 + (exponentialValue * 10).round(); // 5-15 points
+    }
   }
 
   void _addAccessibilityRing(Canvas canvas, Offset center, double valenceHue, double baseRadius, int rings, int starPoints, double accessibility, double maxRadius) {
