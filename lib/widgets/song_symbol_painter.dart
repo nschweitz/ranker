@@ -165,26 +165,21 @@ class SongSymbolPainter extends CustomPainter {
     // Position outer ring closer to prevent cutoff
     final outerRingRadius = math.min(maxRadius - 2, baseRadius + rings * 2 + 2);
     
-    if (accessibility >= 0.9) {
-      // Perfect circle for maximum accessibility
-      final paint = Paint()
-        ..color = HSLColor.fromAHSL(0.8, valenceHue, 0.6, 0.7).toColor()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
-      
-      canvas.drawCircle(center, outerRingRadius, paint);
-    } else {
-      // Spiky ring for lower accessibility
-      final spikeHeight = math.pow(1 - accessibility, 0.5).toDouble() * 8;
-      _drawAccessibilitySpikes(
-        canvas,
-        center,
-        outerRingRadius,
-        starPoints,
-        spikeHeight,
-        valenceHue,
-      );
-    }
+    // Smooth amplitude fade - spikes fade to 0 as accessibility approaches 1
+    // Use a more gradual transition that utilizes more of the visual range
+    final spikeHeight = math.pow(1 - accessibility, 1.2).toDouble() * 15;
+    
+    // Use more points for smoother rings when star points are low
+    final ringPoints = math.max(starPoints, 12);
+    
+    _drawAccessibilitySpikes(
+      canvas,
+      center,
+      outerRingRadius,
+      ringPoints,
+      spikeHeight,
+      valenceHue,
+    );
   }
 
   void _drawAccessibilitySpikes(Canvas canvas, Offset center, double baseRadius, int spikeCount, double spikeHeight, double valenceHue) {
