@@ -28,7 +28,7 @@ class SongListItem extends StatelessWidget {
         dense: true,
         onTap: onTap,
         onLongPress: onLongPress,
-        leading: hasAllRatings 
+        trailing: hasAllRatings 
           ? SongGlyph(
               quality: song.qualityRating!,
               valence: song.valenceRating!,
