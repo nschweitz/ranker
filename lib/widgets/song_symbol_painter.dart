@@ -111,7 +111,7 @@ class SongSymbolPainter extends CustomPainter {
     }
     
     // Add accessibility outer ring
-    _addAccessibilityRing(canvas, center, valenceHue, baseRadius, rings, starPoints, normalizedAccessibility, size.width / 2, qualityAlpha);
+    _addAccessibilityRing(canvas, center, valenceHue, baseRadius, rings, starPoints, normalizedAccessibility, size.width / 2 * 1.5, qualityAlpha);
   }
 
   double _getValenceHue(double normalizedValence) {
@@ -177,8 +177,28 @@ class SongSymbolPainter extends CustomPainter {
   }
 
   void _addAccessibilityRing(Canvas canvas, Offset center, double valenceHue, double baseRadius, int rings, int starPoints, double accessibility, double maxRadius, double qualityAlpha) {
+    // Adjust base ring radius
+    double adjustedBaseRadius = baseRadius - 2;
+
+    // Low accessibility = big spikes, decrease radius to compensate
+    double lowAccessibilityMultiplier = 0.6;
+    // High accessibility = circle, leave radius alone
+    double highAccessibilityMultiplier = 1;
+    // Go from 0 to 1
+    double factor = (1 - accessibility) * lowAccessibilityMultiplier + accessibility *
+        highAccessibilityMultiplier;
+    adjustedBaseRadius *= factor;
+
+    if (accessibility < 0) {
+      // Low accessibility (spiky): decrease radius
+      adjustedBaseRadius *= 0.6;
+    } else if (accessibility > 0) {
+      // High accessibility (circle): increase radius
+      adjustedBaseRadius *= 1.5;
+    }
+    
     // Position outer ring closer to prevent cutoff
-    final outerRingRadius = math.min(maxRadius - 2, baseRadius + rings * 2 + 2);
+    final outerRingRadius = math.min(maxRadius - 2, adjustedBaseRadius);
     
     // Smooth amplitude fade - spikes fade to 0 as accessibility approaches 1
     // Use a more gradual transition that utilizes more of the visual range
