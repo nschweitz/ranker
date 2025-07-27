@@ -7,6 +7,20 @@ import '../services/spotify_playback_service.dart';
 import '../widgets/song_list_item.dart';
 import 'rating_screen.dart';
 
+enum SortCriteria {
+  timeAdded,
+  quality,
+  valence,
+  intensity,
+  accessibility,
+  synthetic,
+}
+
+enum SortOrder {
+  ascending,
+  descending,
+}
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
@@ -28,6 +42,9 @@ class _MyHomePageState extends State<MyHomePage> {
   int? _totalLikedSongs;
   DateTime? _lastSyncTime;
   StreamSubscription<List<LikedSong>>? _likedSongsSubscription;
+  
+  SortCriteria _currentSortCriteria = SortCriteria.timeAdded;
+  SortOrder _currentSortOrder = SortOrder.descending;
 
   @override
   void initState() {
@@ -77,6 +94,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _likedSongs.clear();
       _likedSongs.addAll(cachedSongs);
       _lastSyncTime = lastSync;
+      _sortSongs();
     });
   }
 
@@ -160,8 +178,141 @@ class _MyHomePageState extends State<MyHomePage> {
       final index = _likedSongs.indexWhere((song) => song.id == songId);
       if (index != -1) {
         _likedSongs[index] = updatedSong;
+        _sortSongs();
       }
     });
+  }
+
+  void _sortSongs() {
+    _likedSongs.sort((a, b) {
+      int comparison = 0;
+      
+      switch (_currentSortCriteria) {
+        case SortCriteria.timeAdded:
+          comparison = a.addedAt.compareTo(b.addedAt);
+          break;
+        case SortCriteria.quality:
+          final aRating = a.qualityRating ?? -10.0;
+          final bRating = b.qualityRating ?? -10.0;
+          comparison = aRating.compareTo(bRating);
+          break;
+        case SortCriteria.valence:
+          final aRating = a.valenceRating ?? -10.0;
+          final bRating = b.valenceRating ?? -10.0;
+          comparison = aRating.compareTo(bRating);
+          break;
+        case SortCriteria.intensity:
+          final aRating = a.intensityRating ?? -10.0;
+          final bRating = b.intensityRating ?? -10.0;
+          comparison = aRating.compareTo(bRating);
+          break;
+        case SortCriteria.accessibility:
+          final aRating = a.accessibilityRating ?? -10.0;
+          final bRating = b.accessibilityRating ?? -10.0;
+          comparison = aRating.compareTo(bRating);
+          break;
+        case SortCriteria.synthetic:
+          final aRating = a.syntheticRating ?? -10.0;
+          final bRating = b.syntheticRating ?? -10.0;
+          comparison = aRating.compareTo(bRating);
+          break;
+      }
+      
+      return _currentSortOrder == SortOrder.ascending ? comparison : -comparison;
+    });
+  }
+
+  String _getSortCriteriaDisplayName(SortCriteria criteria) {
+    switch (criteria) {
+      case SortCriteria.timeAdded:
+        return 'Time Added';
+      case SortCriteria.quality:
+        return 'Quality';
+      case SortCriteria.valence:
+        return 'Valence';
+      case SortCriteria.intensity:
+        return 'Intensity';
+      case SortCriteria.accessibility:
+        return 'Accessibility';
+      case SortCriteria.synthetic:
+        return 'Synthetic';
+    }
+  }
+
+  void _showSortDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Sort Songs'),
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setDialogState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Sort by:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  ...SortCriteria.values.map((criteria) => RadioListTile<SortCriteria>(
+                    title: Text(_getSortCriteriaDisplayName(criteria)),
+                    value: criteria,
+                    groupValue: _currentSortCriteria,
+                    onChanged: (SortCriteria? value) {
+                      if (value != null) {
+                        setDialogState(() {
+                          _currentSortCriteria = value;
+                        });
+                      }
+                    },
+                  )),
+                  const SizedBox(height: 20),
+                  const Text('Order:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  RadioListTile<SortOrder>(
+                    title: Text(_currentSortCriteria == SortCriteria.timeAdded ? 'Newest First' : 'Highest First'),
+                    value: SortOrder.descending,
+                    groupValue: _currentSortOrder,
+                    onChanged: (SortOrder? value) {
+                      if (value != null) {
+                        setDialogState(() {
+                          _currentSortOrder = value;
+                        });
+                      }
+                    },
+                  ),
+                  RadioListTile<SortOrder>(
+                    title: Text(_currentSortCriteria == SortCriteria.timeAdded ? 'Oldest First' : 'Lowest First'),
+                    value: SortOrder.ascending,
+                    groupValue: _currentSortOrder,
+                    onChanged: (SortOrder? value) {
+                      if (value != null) {
+                        setDialogState(() {
+                          _currentSortOrder = value;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _sortSongs();
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _syncLikedSongs() async {
@@ -177,6 +328,7 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         _likedSongs.clear();
         _likedSongs.addAll(cachedSongs);
+        _sortSongs();
       });
 
       final total = await SpotifyLikedSongsService.getTotalLikedSongsCount();
@@ -189,6 +341,7 @@ class _MyHomePageState extends State<MyHomePage> {
           setState(() {
             // Insert new songs at the beginning since they're newer
             _likedSongs.insertAll(0, batch);
+            _sortSongs();
           });
         },
         onError: (error) {
@@ -256,6 +409,11 @@ class _MyHomePageState extends State<MyHomePage> {
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           title: Text('${_likedSongs.length} Liked Songs'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.sort),
+              tooltip: 'Sort songs',
+              onPressed: _showSortDialog,
+            ),
             if (_lastSyncTime != null)
               Padding(
                 padding: const EdgeInsets.only(right: 8.0),
