@@ -3,6 +3,7 @@ import 'package:app_links/app_links.dart';
 import 'dart:async';
 import '../services/spotify_auth_service.dart';
 import '../services/spotify_liked_songs_service.dart';
+import '../services/spotify_playback_service.dart';
 import '../widgets/song_list_item.dart';
 import 'rating_screen.dart';
 
@@ -135,6 +136,19 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  Future<void> _playSongInSpotify(LikedSong song) async {
+    try {
+      await SpotifyPlaybackService.playSong(song.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Now playing: ${song.name} by ${song.artists.join(', ')}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to play song: $e')),
+      );
+    }
+  }
+
   Future<void> _refreshSingleSong(String songId) async {
     final cachedSongs = await SpotifyLikedSongsService.getCachedLikedSongs();
     final updatedSong = cachedSongs.firstWhere(
@@ -252,6 +266,25 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
               ),
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'signout') {
+                  _signOut();
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem<String>(
+                  value: 'signout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout),
+                      SizedBox(width: 8),
+                      Text('Sign Out'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
         body: ListView.builder(
@@ -261,6 +294,7 @@ class _MyHomePageState extends State<MyHomePage> {
             return SongListItem(
               song: song,
               onTap: () => _showRatingScreen(song),
+              onLongPress: () => _playSongInSpotify(song),
             );
           },
         ),

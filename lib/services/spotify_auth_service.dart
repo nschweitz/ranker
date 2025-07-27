@@ -41,7 +41,7 @@ class SpotifyAuthService {
       'redirect_uri': redirectUri,
       'code_challenge_method': 'S256',
       'code_challenge': codeChallenge,
-      'scope': 'user-read-private user-read-email playlist-read-private playlist-read-collaborative user-library-read',
+      'scope': 'user-read-private user-read-email playlist-read-private playlist-read-collaborative user-library-read user-modify-playback-state user-read-playback-state',
     };
     
     final uri = Uri.parse(authUrl).replace(queryParameters: params);

@@ -66,8 +66,9 @@ class GradientLinePainter extends CustomPainter {
 class SongListItem extends StatelessWidget {
   final LikedSong song;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   
-  const SongListItem({super.key, required this.song, this.onTap});
+  const SongListItem({super.key, required this.song, this.onTap, this.onLongPress});
 
   Color _getColorForValue(double? value) {
     if (value == null) return Colors.grey;
@@ -110,6 +111,7 @@ class SongListItem extends StatelessWidget {
       child: ListTile(
         dense: true,
         onTap: onTap,
+        onLongPress: onLongPress,
         title: Text(
           song.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
