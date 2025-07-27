@@ -21,11 +21,6 @@ class SongListItem extends StatelessWidget {
       child: ListTile(
         dense: true,
         onTap: onTap,
-        leading: const Icon(
-          Icons.music_note,
-          color: Color(0xFF1DB954),
-          size: 20,
-        ),
         title: Text(
           song.name,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),

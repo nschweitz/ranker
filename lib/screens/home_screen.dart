@@ -296,11 +296,6 @@ class _MyHomePageState extends State<MyHomePage> {
           child: Column(
             children: <Widget>[
               const SizedBox(height: 20),
-              Icon(
-                Icons.music_note,
-                size: 80,
-                color: Theme.of(context).colorScheme.primary,
-              ),
               const SizedBox(height: 20),
               Text(
                 'Spotify Integration',

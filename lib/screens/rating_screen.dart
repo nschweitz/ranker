@@ -247,7 +247,7 @@ class _RatingScreenState extends State<RatingScreen> {
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         thumbShape: CustomSliderThumbShape(
-          thumbRadius: 14.0,
+          thumbRadius: isDragging ? 14.0 : 8.0,
           value: value,
           color: color,
           aspectName: label,

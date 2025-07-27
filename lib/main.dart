@@ -16,10 +16,13 @@ class MyApp extends StatelessWidget {
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF1DB954),
           secondary: Color(0xFF1DB954),
-          surface: Color(0xFF121212),
+          surface: Color(0xFF000000),
+          background: Color(0xFF000000),
         ),
+        scaffoldBackgroundColor: const Color(0xFF000000),
         cardTheme: const CardThemeData(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          color: Color(0xFF000000),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(

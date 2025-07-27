@@ -77,16 +77,11 @@ class RatingScreenHelpers {
   static Widget buildCurrentSongCard(LikedSong song) {
     return Card(
       elevation: 2,
+      color: const Color(0xFF000000),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            const Icon(
-              Icons.music_note,
-              color: Color(0xFF1DB954),
-              size: 32,
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +137,7 @@ class RatingScreenHelpers {
         height: 64,
         child: Card(
           elevation: 0,
-          color: Colors.transparent,
+          color: const Color(0xFF000000),
           child: Container(),
         ),
       );
@@ -162,17 +157,11 @@ class RatingScreenHelpers {
         height: 64,
         child: Card(
           elevation: 1,
-          color: Colors.blue[50],
+          color: const Color(0xFF000000),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
-                Icon(
-                  Icons.music_note_outlined,
-                  color: Colors.grey[400],
-                  size: 32,
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +172,7 @@ class RatingScreenHelpers {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.blue[100],
+                              color: const Color(0xFF1A1A1A),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -191,7 +180,7 @@ class RatingScreenHelpers {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -244,17 +233,11 @@ class RatingScreenHelpers {
       height: 64,
       child: Card(
         elevation: 1,
-        color: Colors.blue[50],
+        color: const Color(0xFF000000),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
             children: [
-              Icon(
-                Icons.music_note_outlined,
-                color: Colors.blue[600],
-                size: 32,
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +248,7 @@ class RatingScreenHelpers {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.blue[100],
+                            color: const Color(0xFF1A1A1A),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -273,7 +256,7 @@ class RatingScreenHelpers {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.blue[800],
+                              color: Colors.white,
                             ),
                           ),
                         ),
