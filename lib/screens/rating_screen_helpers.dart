@@ -74,7 +74,7 @@ class RatingScreenHelpers {
     return validSongs.first;
   }
 
-  static Widget buildCurrentSongCard(LikedSong song) {
+  static Widget buildCurrentSongCard(LikedSong song, String? activeParameter, double? currentValue) {
     return Card(
       elevation: 2,
       color: const Color(0xFF000000),
@@ -86,14 +86,38 @@ class RatingScreenHelpers {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    song.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      if (activeParameter != null && currentValue != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            currentValue.toStringAsFixed(1),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      if (activeParameter != null && currentValue != null)
+                        const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          song.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -101,16 +125,6 @@ class RatingScreenHelpers {
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey[600],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    song.album,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[500],
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

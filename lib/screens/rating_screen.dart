@@ -134,7 +134,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   _buildRatingSlider(
                     'Quality',
                     _qualityRating,
-                    Colors.blue,
+                    Colors.blue, // This parameter is still needed for the method signature
                     (value) => setState(() => _qualityRating = value),
                     onStart: () => setState(() => _activeSlider = 'quality'),
                     onEnd: () => setState(() => _activeSlider = null),
@@ -143,7 +143,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   _buildRatingSlider(
                     'Valence',
                     _valenceRating,
-                    Colors.green,
+                    Colors.green, // This parameter is still needed for the method signature
                     (value) => setState(() => _valenceRating = value),
                     onStart: () => setState(() => _activeSlider = 'valence'),
                     onEnd: () => setState(() => _activeSlider = null),
@@ -152,7 +152,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   _buildRatingSlider(
                     'Intensity',
                     _intensityRating,
-                    Colors.red,
+                    Colors.red, // This parameter is still needed for the method signature
                     (value) => setState(() => _intensityRating = value),
                     onStart: () => setState(() => _activeSlider = 'intensity'),
                     onEnd: () => setState(() => _activeSlider = null),
@@ -161,7 +161,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   _buildRatingSlider(
                     'Accessibility',
                     _accessibilityRating,
-                    Colors.purple,
+                    Colors.purple, // This parameter is still needed for the method signature
                     (value) => setState(() => _accessibilityRating = value),
                     onStart: () => setState(() => _activeSlider = 'accessibility'),
                     onEnd: () => setState(() => _activeSlider = null),
@@ -170,7 +170,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   _buildRatingSlider(
                     'Synthetic',
                     _syntheticRating,
-                    Colors.orange,
+                    Colors.orange, // This parameter is still needed for the method signature
                     (value) => setState(() => _syntheticRating = value),
                     onStart: () => setState(() => _activeSlider = 'synthetic'),
                     onEnd: () => setState(() => _activeSlider = null),
@@ -222,7 +222,7 @@ class _RatingScreenState extends State<RatingScreen> {
         ),
         const SizedBox(height: 4),
         // Current song being rated
-        RatingScreenHelpers.buildCurrentSongCard(widget.song),
+        RatingScreenHelpers.buildCurrentSongCard(widget.song, parameter, currentValue),
         const SizedBox(height: 4),
         // Song with next lowest rating
         RatingScreenHelpers.buildReferenceSongCard(
@@ -237,30 +237,39 @@ class _RatingScreenState extends State<RatingScreen> {
   }
 
 
+  Color _getColorForValue(double? value) {
+    if (value == null || value == 0.0) return Colors.red;
+    // Normalize value from [-9, 9] to [0, 1]
+    final normalized = (value + 9) / 18;
+    return Color.lerp(Colors.blue, Colors.yellow, normalized) ?? Colors.grey;
+  }
+
   Widget _buildRatingSlider(String label, double value, Color color, ValueChanged<double> onChanged, {
     VoidCallback? onStart,
     VoidCallback? onEnd,
   }) {
     // Determine if this slider is being dragged
     final isDragging = _activeSlider == label.toLowerCase();
+    final sliderColor = _getColorForValue(value);
     
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         thumbShape: CustomSliderThumbShape(
           thumbRadius: isDragging ? 14.0 : 8.0,
           value: value,
-          color: color,
+          color: sliderColor,
           aspectName: label,
           isDragging: isDragging,
         ),
         overlayShape: RoundSliderOverlayShape(overlayRadius: 20.0),
+        trackHeight: 1.0, // Make track 1 unit tall like gradient line
       ),
       child: Slider(
         value: value,
         min: -9.0,
         max: 9.0,
-        activeColor: color,
-        inactiveColor: color.withValues(alpha: 0.3),
+        activeColor: sliderColor,
+        inactiveColor: sliderColor.withValues(alpha: 0.3),
         onChanged: onChanged,
         onChangeStart: (value) => onStart?.call(),
         onChangeEnd: (value) => onEnd?.call(),

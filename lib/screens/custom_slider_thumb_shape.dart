@@ -57,7 +57,7 @@ class CustomSliderThumbShape extends SliderComponentShape {
     final textSpan = TextSpan(
       text: pillText,
       style: TextStyle(
-        color: Colors.white,
+        color: Colors.black,
         fontSize: 12,
         fontWeight: FontWeight.bold,
       ),
@@ -94,7 +94,7 @@ class CustomSliderThumbShape extends SliderComponentShape {
     
     // Draw pill border
     final pillBorderPaint = Paint()
-      ..color = Colors.white
+      ..color = Colors.black
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     
