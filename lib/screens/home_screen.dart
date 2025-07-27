@@ -73,7 +73,8 @@ class _MyHomePageState extends State<MyHomePage> {
     final lastSync = await SpotifyLikedSongsService.getLastSyncTime();
     
     setState(() {
-      _likedSongs = cachedSongs;
+      _likedSongs.clear();
+      _likedSongs.addAll(cachedSongs);
       _lastSyncTime = lastSync;
     });
   }
@@ -122,15 +123,14 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _showRatingScreen(LikedSong song) async {
-    final result = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (context) => RatingScreen(song: song),
       ),
     );
     
-    if (result == true) {
-      await _loadCachedData();
-    }
+    // Always refresh after returning from rating screen
+    await _loadCachedData();
   }
 
   Future<void> _syncLikedSongs() async {

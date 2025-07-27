@@ -11,9 +11,9 @@ class LikedSong {
   final DateTime addedAt;
   final String? previewUrl;
   final int durationMs;
-  final int? qualityRating;
-  final int? valenceRating;
-  final int? intensityRating;
+  final double? qualityRating;
+  final double? valenceRating;
+  final double? intensityRating;
 
   LikedSong({
     required this.id,
@@ -197,7 +197,7 @@ class SpotifyLikedSongsService {
         .reduce((a, b) => a.isAfter(b) ? a : b);
   }
 
-  static Future<void> updateSongRatings(String songId, {int? quality, int? valence, int? intensity}) async {
+  static Future<void> updateSongRatings(String songId, {double? quality, double? valence, double? intensity}) async {
     final cachedSongs = await getCachedLikedSongs();
     final updatedSongs = cachedSongs.map((song) {
       if (song.id == songId) {

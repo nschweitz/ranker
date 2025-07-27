@@ -46,15 +46,15 @@ class SongListItem extends StatelessWidget {
               Row(
                 children: [
                   if (song.qualityRating != null) 
-                    Text('Q:${song.qualityRating}', style: const TextStyle(fontSize: 10, color: Colors.blue)),
+                    Text('Q:${song.qualityRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.blue)),
                   if (song.qualityRating != null && (song.valenceRating != null || song.intensityRating != null))
                     const Text(' ', style: TextStyle(fontSize: 10)),
                   if (song.valenceRating != null)
-                    Text('V:${song.valenceRating}', style: const TextStyle(fontSize: 10, color: Colors.green)),
+                    Text('V:${song.valenceRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.green)),
                   if (song.valenceRating != null && song.intensityRating != null)
                     const Text(' ', style: TextStyle(fontSize: 10)),
                   if (song.intensityRating != null)
-                    Text('I:${song.intensityRating}', style: const TextStyle(fontSize: 10, color: Colors.red)),
+                    Text('I:${song.intensityRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.red)),
                 ],
               ),
           ],

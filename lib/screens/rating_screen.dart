@@ -20,10 +20,22 @@ class _RatingScreenState extends State<RatingScreen> {
   @override
   void initState() {
     super.initState();
-    _qualityRating = (widget.song.qualityRating ?? 0).toDouble();
-    _valenceRating = (widget.song.valenceRating ?? 0).toDouble();
-    _intensityRating = (widget.song.intensityRating ?? 0).toDouble();
     _loadAllSongs();
+    _loadCurrentSongRatings();
+  }
+
+  Future<void> _loadCurrentSongRatings() async {
+    final songs = await SpotifyLikedSongsService.getCachedLikedSongs();
+    final currentSong = songs.firstWhere(
+      (song) => song.id == widget.song.id,
+      orElse: () => widget.song,
+    );
+    
+    setState(() {
+      _qualityRating = (currentSong.qualityRating ?? 0).toDouble();
+      _valenceRating = (currentSong.valenceRating ?? 0).toDouble();
+      _intensityRating = (currentSong.intensityRating ?? 0).toDouble();
+    });
   }
 
   Future<void> _loadAllSongs() async {
@@ -33,27 +45,49 @@ class _RatingScreenState extends State<RatingScreen> {
     });
   }
 
+  LikedSong? _findNextUnratedSong() {
+    for (final song in _allSongs) {
+      if (song.id != widget.song.id && 
+          (song.qualityRating == null || song.valenceRating == null || song.intensityRating == null)) {
+        return song;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Rate Song'),
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: const Text('Rate Song'),
         actions: [
           TextButton(
             onPressed: () async {
               await SpotifyLikedSongsService.updateSongRatings(
                 widget.song.id,
-                quality: _qualityRating.round(),
-                valence: _valenceRating.round(),
-                intensity: _intensityRating.round(),
+                quality: _qualityRating,
+                valence: _valenceRating,
+                intensity: _intensityRating,
               );
+              
               if (mounted) {
-                Navigator.of(context).pop(true);
+                final nextSong = _findNextUnratedSong();
+                if (nextSong != null) {
+                  // Replace current screen with next song's rating screen
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => RatingScreen(song: nextSong),
+                    ),
+                  );
+                } else {
+                  // No more unrated songs, go back to home
+                  Navigator.of(context).pop(true);
+                }
               }
             },
             child: const Text(
-              'SAVE',
+              'NEXT',
               style: TextStyle(
                 color: Color(0xFF1DB954),
                 fontWeight: FontWeight.bold,
@@ -112,11 +146,11 @@ class _RatingScreenState extends State<RatingScreen> {
     );
   }
 
-  List<LikedSong> _findSongsByRating(String parameter, int targetValue) {
-    return _allSongs.where((song) {
+  LikedSong? _findClosestSongByRating(String parameter, double currentValue, bool findHigher) {
+    List<LikedSong> validSongs = _allSongs.where((song) {
       if (song.id == widget.song.id) return false; // Exclude current song
       
-      int? songValue;
+      double? songValue;
       switch (parameter) {
         case 'quality':
           songValue = song.qualityRating;
@@ -128,8 +162,40 @@ class _RatingScreenState extends State<RatingScreen> {
           songValue = song.intensityRating;
           break;
       }
-      return songValue == targetValue;
+      
+      if (songValue == null) return false;
+      
+      return findHigher ? songValue > currentValue : songValue < currentValue;
     }).toList();
+    
+    if (validSongs.isEmpty) return null;
+    
+    // Sort and return the closest one
+    validSongs.sort((a, b) {
+      double aValue = 0, bValue = 0;
+      switch (parameter) {
+        case 'quality':
+          aValue = a.qualityRating!;
+          bValue = b.qualityRating!;
+          break;
+        case 'valence':
+          aValue = a.valenceRating!;
+          bValue = b.valenceRating!;
+          break;
+        case 'intensity':
+          aValue = a.intensityRating!;
+          bValue = b.intensityRating!;
+          break;
+      }
+      
+      if (findHigher) {
+        return aValue.compareTo(bValue); // Ascending for next higher
+      } else {
+        return bValue.compareTo(aValue); // Descending for next lower
+      }
+    });
+    
+    return validSongs.first;
   }
 
   Widget _buildSurroundingReferencePoints() {
@@ -149,22 +215,17 @@ class _RatingScreenState extends State<RatingScreen> {
           break;
       }
     }
-
-    final currentInt = currentValue?.round();
     
     return Column(
       children: [
-        // Song with $CURRENT_VALUE + 1
-        _buildReferenceSongCard(parameter, currentInt != null ? currentInt + 1 : null),
+        // Song with next highest rating
+        _buildReferenceSongCard(parameter, currentValue, true),
         const SizedBox(height: 4),
         // Current song being rated
         _buildCurrentSongCard(),
         const SizedBox(height: 4),
-        // Song with $CURRENT_VALUE
-        _buildReferenceSongCard(parameter, currentInt),
-        const SizedBox(height: 4),
-        // Song with $CURRENT_VALUE - 1
-        _buildReferenceSongCard(parameter, currentInt != null ? currentInt - 1 : null),
+        // Song with next lowest rating
+        _buildReferenceSongCard(parameter, currentValue, false),
       ],
     );
   }
@@ -224,9 +285,9 @@ class _RatingScreenState extends State<RatingScreen> {
     );
   }
 
-  Widget _buildReferenceSongCard(String? parameter, int? targetValue) {
-    // Show empty placeholder when no active slider or target value
-    if (parameter == null || targetValue == null) {
+  Widget _buildReferenceSongCard(String? parameter, double? currentValue, bool findHigher) {
+    // Show empty placeholder when no active slider
+    if (parameter == null || currentValue == null) {
       return SizedBox(
         height: 64,
         child: Card(
@@ -237,9 +298,10 @@ class _RatingScreenState extends State<RatingScreen> {
       );
     }
 
-    final songs = _findSongsByRating(parameter, targetValue);
+    final song = _findClosestSongByRating(parameter, currentValue, findHigher);
     
-    if (songs.isEmpty) {
+    if (song == null) {
+      final direction = findHigher ? 'higher' : 'lower';
       return SizedBox(
         height: 64,
         child: Card(
@@ -280,7 +342,7 @@ class _RatingScreenState extends State<RatingScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'No songs with rating $targetValue',
+                              'No songs with $direction rating',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -292,14 +354,6 @@ class _RatingScreenState extends State<RatingScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -310,7 +364,20 @@ class _RatingScreenState extends State<RatingScreen> {
       );
     }
 
-    final song = songs.first;
+    // Get the song's rating for this parameter
+    double songRating = 0;
+    switch (parameter) {
+      case 'quality':
+        songRating = song.qualityRating!;
+        break;
+      case 'valence':
+        songRating = song.valenceRating!;
+        break;
+      case 'intensity':
+        songRating = song.intensityRating!;
+        break;
+    }
+
     return SizedBox(
       height: 64,
       child: Card(
@@ -340,7 +407,7 @@ class _RatingScreenState extends State<RatingScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            targetValue.toString(),
+                            songRating.toStringAsFixed(1),
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -382,80 +449,7 @@ class _RatingScreenState extends State<RatingScreen> {
     );
   }
 
-  Widget _buildReferencePoints(String parameter, double currentValue) {
-    if (_activeSlider != parameter) return const SizedBox.shrink();
-    
-    final currentInt = currentValue.round();
-    final referenceSongs = {
-      'current': _findSongsByRating(parameter, currentInt),
-      'plus': _findSongsByRating(parameter, currentInt + 1),
-      'minus': _findSongsByRating(parameter, currentInt - 1),
-    };
 
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Reference Points',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...[
-            _buildReferenceRow('Current ($currentInt)', referenceSongs['current']!),
-            if (currentInt < 10) _buildReferenceRow('${currentInt + 1}', referenceSongs['plus']!),
-            if (currentInt > -10) _buildReferenceRow('${currentInt - 1}', referenceSongs['minus']!),
-          ].where((widget) => widget != null).cast<Widget>(),
-        ],
-      ),
-    );
-  }
-
-  Widget? _buildReferenceRow(String label, List<LikedSong> songs) {
-    if (songs.isEmpty) return null;
-    
-    final song = songs.first; // Take the first matching song
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 40,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              '${song.name} - ${song.artists.join(', ')}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.black87,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildRatingSlider(String label, double value, Color color, ValueChanged<double> onChanged, {
     VoidCallback? onStart,
@@ -483,7 +477,7 @@ class _RatingScreenState extends State<RatingScreen> {
                 border: Border.all(color: color.withValues(alpha: 0.3)),
               ),
               child: Text(
-                value.round().toString(),
+                value.toStringAsFixed(1),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -497,7 +491,7 @@ class _RatingScreenState extends State<RatingScreen> {
         Row(
           children: [
             Text(
-              '-10',
+              '-9',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
@@ -507,9 +501,8 @@ class _RatingScreenState extends State<RatingScreen> {
             Expanded(
               child: Slider(
                 value: value,
-                min: -10,
-                max: 10,
-                divisions: 20,
+                min: -9.0,
+                max: 9.0,
                 activeColor: color,
                 inactiveColor: color.withValues(alpha: 0.3),
                 onChanged: onChanged,
@@ -518,7 +511,7 @@ class _RatingScreenState extends State<RatingScreen> {
               ),
             ),
             Text(
-              '10',
+              '9',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[600],
