@@ -42,19 +42,27 @@ class SongListItem extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            if (song.qualityRating != null || song.valenceRating != null || song.intensityRating != null)
+            if (song.qualityRating != null || song.valenceRating != null || song.intensityRating != null || song.accessibilityRating != null || song.syntheticRating != null)
               Row(
                 children: [
                   if (song.qualityRating != null) 
                     Text('Q:${song.qualityRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.blue)),
-                  if (song.qualityRating != null && (song.valenceRating != null || song.intensityRating != null))
+                  if (song.qualityRating != null && (song.valenceRating != null || song.intensityRating != null || song.accessibilityRating != null || song.syntheticRating != null))
                     const Text(' ', style: TextStyle(fontSize: 10)),
                   if (song.valenceRating != null)
                     Text('V:${song.valenceRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.green)),
-                  if (song.valenceRating != null && song.intensityRating != null)
+                  if (song.valenceRating != null && (song.intensityRating != null || song.accessibilityRating != null || song.syntheticRating != null))
                     const Text(' ', style: TextStyle(fontSize: 10)),
                   if (song.intensityRating != null)
                     Text('I:${song.intensityRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.red)),
+                  if (song.intensityRating != null && (song.accessibilityRating != null || song.syntheticRating != null))
+                    const Text(' ', style: TextStyle(fontSize: 10)),
+                  if (song.accessibilityRating != null)
+                    Text('A:${song.accessibilityRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.orange)),
+                  if (song.accessibilityRating != null && song.syntheticRating != null)
+                    const Text(' ', style: TextStyle(fontSize: 10)),
+                  if (song.syntheticRating != null)
+                    Text('S:${song.syntheticRating!.toStringAsFixed(1)}', style: const TextStyle(fontSize: 10, color: Colors.purple)),
                 ],
               ),
           ],
