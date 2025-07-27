@@ -247,7 +247,16 @@ class _RatingScreenState extends State<RatingScreen> {
         ),
         const SizedBox(height: 4),
         // Current song being rated
-        RatingScreenHelpers.buildCurrentSongCard(widget.song, parameter, currentValue),
+        RatingScreenHelpers.buildCurrentSongCard(
+          widget.song, 
+          parameter, 
+          currentValue,
+          qualityRating: _qualityRating,
+          valenceRating: _valenceRating,
+          intensityRating: _intensityRating,
+          accessibilityRating: _accessibilityRating,
+          syntheticRating: _syntheticRating,
+        ),
         const SizedBox(height: 4),
         // Song with next lowest rating
         RatingScreenHelpers.buildReferenceSongCard(

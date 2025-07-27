@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/spotify_liked_songs_service.dart';
+import '../widgets/song_glyph.dart';
 
 class RatingScreenHelpers {
   // Cache for reference song calculations to avoid repeated sorting
@@ -113,7 +114,13 @@ class RatingScreenHelpers {
     return result;
   }
 
-  static Widget buildCurrentSongCard(LikedSong song, String? activeParameter, double? currentValue) {
+  static Widget buildCurrentSongCard(LikedSong song, String? activeParameter, double? currentValue, {
+    double? qualityRating,
+    double? valenceRating,
+    double? intensityRating,
+    double? accessibilityRating,
+    double? syntheticRating,
+  }) {
     return Card(
       elevation: 2,
       color: const Color(0xFF000000),
@@ -121,6 +128,20 @@ class RatingScreenHelpers {
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
+            // Dynamic Symbol
+            if (qualityRating != null && valenceRating != null && intensityRating != null && 
+                accessibilityRating != null && syntheticRating != null)
+              Container(
+                margin: const EdgeInsets.only(right: 12.0),
+                child: SongGlyph(
+                  quality: qualityRating,
+                  valence: valenceRating,
+                  intensity: intensityRating,
+                  accessibility: accessibilityRating,
+                  syntheticness: syntheticRating,
+                  size: 64.0,
+                ),
+              ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
