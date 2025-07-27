@@ -13,11 +13,11 @@ class RatingScreen extends StatefulWidget {
 }
 
 class _RatingScreenState extends State<RatingScreen> {
-  late double _qualityRating;
-  late double _valenceRating;
-  late double _intensityRating;
-  late double _accessibilityRating;
-  late double _syntheticRating;
+  double _qualityRating = 0.0;
+  double _valenceRating = 0.0;
+  double _intensityRating = 0.0;
+  double _accessibilityRating = 0.0;
+  double _syntheticRating = 0.0;
   List<LikedSong> _allSongs = [];
   String? _activeSlider; // Track which slider is being dragged
 
