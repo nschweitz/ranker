@@ -88,6 +88,7 @@ class SpotifyLikedSongsService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _likedSongsKey = 'cached_liked_songs';
   static const String _lastSyncKey = 'last_sync_timestamp';
+  static const String _ratingsKey = 'song_ratings';
   
   // In-memory cache to avoid repeated JSON parsing
   static List<LikedSong>? _cachedSongs;
@@ -119,8 +120,8 @@ class SpotifyLikedSongsService {
           final batch = items.map((item) => LikedSong.fromJson(item)).toList();
           allSongs.addAll(batch);
           
-          // Yield the current batch
-          yield batch;
+          // Yield the current batch with ratings merged
+          yield await _mergeSongsWithRatings(batch);
           
           // Check if there are more items
           nextUrl = data['next'];
@@ -162,13 +163,30 @@ class SpotifyLikedSongsService {
   }
 
   static Future<void> saveLikedSongs(List<LikedSong> songs) async {
-    final songsJson = songs.map((song) => song.toJson()).toList();
+    // Store songs without ratings since ratings are stored separately
+    final songsWithoutRatings = songs.map((song) => LikedSong(
+      id: song.id,
+      name: song.name,
+      artists: song.artists,
+      album: song.album,
+      addedAt: song.addedAt,
+      previewUrl: song.previewUrl,
+      durationMs: song.durationMs,
+      // Explicitly set all ratings to null since they're stored separately
+      qualityRating: null,
+      valenceRating: null,
+      intensityRating: null,
+      accessibilityRating: null,
+      syntheticRating: null,
+    )).toList();
+    
+    final songsJson = songsWithoutRatings.map((song) => song.toJson()).toList();
     final jsonString = json.encode(songsJson);
     await _storage.write(key: _likedSongsKey, value: jsonString);
     await _storage.write(key: _lastSyncKey, value: DateTime.now().toIso8601String());
     
-    // Update in-memory cache
-    _cachedSongs = songs;
+    // Update in-memory cache (without ratings)
+    _cachedSongs = songsWithoutRatings;
     _cacheTimestamp = DateTime.now();
   }
 
@@ -177,7 +195,7 @@ class SpotifyLikedSongsService {
     if (_cachedSongs != null && 
         _cacheTimestamp != null && 
         DateTime.now().difference(_cacheTimestamp!).inSeconds < 30) {
-      return _cachedSongs!;
+      return await _mergeSongsWithRatings(_cachedSongs!);
     }
     
     final jsonString = await _storage.read(key: _likedSongsKey);
@@ -189,9 +207,10 @@ class SpotifyLikedSongsService {
     
     try {
       final List<dynamic> songsJson = json.decode(jsonString);
-      _cachedSongs = songsJson.map((songJson) => LikedSong.fromStorageJson(songJson)).toList();
+      final songs = songsJson.map((songJson) => LikedSong.fromStorageJson(songJson)).toList();
+      _cachedSongs = songs;
       _cacheTimestamp = DateTime.now();
-      return _cachedSongs!;
+      return await _mergeSongsWithRatings(songs);
     } catch (e) {
       _cachedSongs = [];
       _cacheTimestamp = DateTime.now();
@@ -219,6 +238,73 @@ class SpotifyLikedSongsService {
     // Clear in-memory cache
     _cachedSongs = null;
     _cacheTimestamp = null;
+    
+    // Note: We intentionally do NOT clear ratings (_ratingsKey) to preserve them across sign-outs
+  }
+
+  // Separate ratings storage - persistent across sign-outs
+  static Future<Map<String, Map<String, double?>>> _loadRatings() async {
+    final ratingsJson = await _storage.read(key: _ratingsKey);
+    if (ratingsJson == null) return {};
+    
+    try {
+      final Map<String, dynamic> data = json.decode(ratingsJson);
+      return data.map((songId, ratings) => MapEntry(
+        songId,
+        Map<String, double?>.from(ratings),
+      ));
+    } catch (e) {
+      return {};
+    }
+  }
+
+  static Future<void> _saveRatings(Map<String, Map<String, double?>> ratings) async {
+    final ratingsJson = json.encode(ratings);
+    await _storage.write(key: _ratingsKey, value: ratingsJson);
+  }
+
+  static Future<void> _saveRatingForSong(String songId, {
+    double? quality,
+    double? valence,
+    double? intensity,
+    double? accessibility,
+    double? synthetic,
+  }) async {
+    final ratings = await _loadRatings();
+    
+    ratings[songId] = {
+      'quality': quality,
+      'valence': valence,
+      'intensity': intensity,
+      'accessibility': accessibility,
+      'synthetic': synthetic,
+    };
+    
+    await _saveRatings(ratings);
+  }
+
+  static Future<List<LikedSong>> _mergeSongsWithRatings(List<LikedSong> songs) async {
+    final ratings = await _loadRatings();
+    
+    return songs.map((song) {
+      final songRatings = ratings[song.id];
+      if (songRatings == null) return song;
+      
+      return LikedSong(
+        id: song.id,
+        name: song.name,
+        artists: song.artists,
+        album: song.album,
+        addedAt: song.addedAt,
+        previewUrl: song.previewUrl,
+        durationMs: song.durationMs,
+        qualityRating: songRatings['quality'] ?? song.qualityRating,
+        valenceRating: songRatings['valence'] ?? song.valenceRating,
+        intensityRating: songRatings['intensity'] ?? song.intensityRating,
+        accessibilityRating: songRatings['accessibility'] ?? song.accessibilityRating,
+        syntheticRating: songRatings['synthetic'] ?? song.syntheticRating,
+      );
+    }).toList();
   }
 
   static Future<DateTime?> getMostRecentSongTime() async {
@@ -231,28 +317,19 @@ class SpotifyLikedSongsService {
   }
 
   static Future<void> updateSongRatings(String songId, {double? quality, double? valence, double? intensity, double? accessibility, double? synthetic}) async {
-    final cachedSongs = await getCachedLikedSongs();
-    final updatedSongs = cachedSongs.map((song) {
-      if (song.id == songId) {
-        return LikedSong(
-          id: song.id,
-          name: song.name,
-          artists: song.artists,
-          album: song.album,
-          addedAt: song.addedAt,
-          previewUrl: song.previewUrl,
-          durationMs: song.durationMs,
-          qualityRating: quality ?? song.qualityRating,
-          valenceRating: valence ?? song.valenceRating,
-          intensityRating: intensity ?? song.intensityRating,
-          accessibilityRating: accessibility ?? song.accessibilityRating,
-          syntheticRating: synthetic ?? song.syntheticRating,
-        );
-      }
-      return song;
-    }).toList();
+    // Save ratings to the separate persistent ratings storage
+    await _saveRatingForSong(
+      songId,
+      quality: quality,
+      valence: valence,
+      intensity: intensity,
+      accessibility: accessibility,
+      synthetic: synthetic,
+    );
     
-    await saveLikedSongs(updatedSongs);
+    // Clear in-memory cache to force reload with new ratings
+    _cachedSongs = null;
+    _cacheTimestamp = null;
   }
 
   static Stream<List<LikedSong>> syncLikedSongs() async* {
@@ -294,11 +371,11 @@ class SpotifyLikedSongsService {
             }
             
             newSongs.addAll(newerSongs);
-            yield newerSongs;
+            yield await _mergeSongsWithRatings(newerSongs);
           } else {
             // First sync - get everything
             newSongs.addAll(batch);
-            yield batch;
+            yield await _mergeSongsWithRatings(batch);
           }
           
           nextUrl = data['next'];
