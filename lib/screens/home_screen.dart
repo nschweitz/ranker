@@ -123,14 +123,31 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _showRatingScreen(LikedSong song) async {
-    await Navigator.of(context).push<bool>(
+    final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => RatingScreen(song: song),
+        builder: (context) => RatingScreen(song: song, allSongs: _likedSongs),
       ),
     );
     
-    // Always refresh after returning from rating screen
-    await _loadCachedData();
+    // Only refresh specific song data instead of entire list
+    if (result == true) {
+      await _refreshSingleSong(song.id);
+    }
+  }
+
+  Future<void> _refreshSingleSong(String songId) async {
+    final cachedSongs = await SpotifyLikedSongsService.getCachedLikedSongs();
+    final updatedSong = cachedSongs.firstWhere(
+      (song) => song.id == songId,
+      orElse: () => _likedSongs.firstWhere((song) => song.id == songId),
+    );
+    
+    setState(() {
+      final index = _likedSongs.indexWhere((song) => song.id == songId);
+      if (index != -1) {
+        _likedSongs[index] = updatedSong;
+      }
+    });
   }
 
   Future<void> _syncLikedSongs() async {

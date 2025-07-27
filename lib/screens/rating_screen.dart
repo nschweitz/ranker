@@ -5,8 +5,9 @@ import 'rating_screen_helpers.dart';
 
 class RatingScreen extends StatefulWidget {
   final LikedSong song;
+  final List<LikedSong>? allSongs;
   
-  const RatingScreen({super.key, required this.song});
+  const RatingScreen({super.key, required this.song, this.allSongs});
 
   @override
   State<RatingScreen> createState() => _RatingScreenState();
@@ -24,25 +25,25 @@ class _RatingScreenState extends State<RatingScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAllSongs();
-    _loadCurrentSongRatings();
+    _initializeData();
   }
 
-  Future<void> _loadCurrentSongRatings() async {
-    final songs = await SpotifyLikedSongsService.getCachedLikedSongs();
-    final currentSong = songs.firstWhere(
-      (song) => song.id == widget.song.id,
-      orElse: () => widget.song,
-    );
+  void _initializeData() {
+    // Initialize ratings from the song that was passed in
+    _qualityRating = (widget.song.qualityRating ?? 0).toDouble();
+    _valenceRating = (widget.song.valenceRating ?? 0).toDouble();
+    _intensityRating = (widget.song.intensityRating ?? 0).toDouble();
+    _accessibilityRating = (widget.song.accessibilityRating ?? 0).toDouble();
+    _syntheticRating = (widget.song.syntheticRating ?? 0).toDouble();
     
-    setState(() {
-      _qualityRating = (currentSong.qualityRating ?? 0).toDouble();
-      _valenceRating = (currentSong.valenceRating ?? 0).toDouble();
-      _intensityRating = (currentSong.intensityRating ?? 0).toDouble();
-      _accessibilityRating = (currentSong.accessibilityRating ?? 0).toDouble();
-      _syntheticRating = (currentSong.syntheticRating ?? 0).toDouble();
-    });
+    // Use provided songs list or load from cache as fallback
+    if (widget.allSongs != null) {
+      _allSongs = widget.allSongs!;
+    } else {
+      _loadAllSongs();
+    }
   }
+
 
   Future<void> _loadAllSongs() async {
     final songs = await SpotifyLikedSongsService.getCachedLikedSongs();
@@ -70,6 +71,30 @@ class _RatingScreenState extends State<RatingScreen> {
       accessibility: _accessibilityRating,
       synthetic: _syntheticRating,
     );
+    
+    // Update the local _allSongs list to reflect the changes
+    setState(() {
+      final index = _allSongs.indexWhere((song) => song.id == widget.song.id);
+      if (index != -1) {
+        _allSongs[index] = LikedSong(
+          id: widget.song.id,
+          name: widget.song.name,
+          artists: widget.song.artists,
+          album: widget.song.album,
+          addedAt: widget.song.addedAt,
+          previewUrl: widget.song.previewUrl,
+          durationMs: widget.song.durationMs,
+          qualityRating: _qualityRating,
+          valenceRating: _valenceRating,
+          intensityRating: _intensityRating,
+          accessibilityRating: _accessibilityRating,
+          syntheticRating: _syntheticRating,
+        );
+      }
+    });
+    
+    // Clear the reference song cache since ratings have changed
+    RatingScreenHelpers.clearCache();
   }
 
   @override
@@ -83,7 +108,7 @@ class _RatingScreenState extends State<RatingScreen> {
             onPressed: () async {
               await _saveRatings();
               if (mounted) {
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(true);
               }
             },
           ),
@@ -98,7 +123,7 @@ class _RatingScreenState extends State<RatingScreen> {
                   // Replace current screen with next song's rating screen
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
-                      builder: (context) => RatingScreen(song: nextSong),
+                      builder: (context) => RatingScreen(song: nextSong, allSongs: _allSongs),
                     ),
                   );
                 } else {

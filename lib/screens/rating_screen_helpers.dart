@@ -2,6 +2,25 @@ import 'package:flutter/material.dart';
 import '../services/spotify_liked_songs_service.dart';
 
 class RatingScreenHelpers {
+  // Cache for reference song calculations to avoid repeated sorting
+  static Map<String, LikedSong?> _referenceSongCache = {};
+  static String? _lastCacheKey;
+  
+  // Method to clear cache when ratings change
+  static void clearCache() {
+    _referenceSongCache.clear();
+    _lastCacheKey = null;
+  }
+  
+  static String _buildCacheKey(
+    List<LikedSong> allSongs,
+    String currentSongId,
+    String parameter,
+    double currentValue,
+    bool findHigher,
+  ) {
+    return '${allSongs.length}_${currentSongId}_${parameter}_${currentValue.toStringAsFixed(1)}_$findHigher';
+  }
   static LikedSong? findClosestSongByRating(
     List<LikedSong> allSongs,
     String currentSongId,
@@ -9,6 +28,17 @@ class RatingScreenHelpers {
     double currentValue,
     bool findHigher,
   ) {
+    // Check cache first
+    final cacheKey = _buildCacheKey(allSongs, currentSongId, parameter, currentValue, findHigher);
+    if (_referenceSongCache.containsKey(cacheKey)) {
+      return _referenceSongCache[cacheKey];
+    }
+    
+    // Clear cache if different session (different parameters being used)
+    if (_lastCacheKey != null && !cacheKey.startsWith(_lastCacheKey!.split('_')[0])) {
+      _referenceSongCache.clear();
+    }
+    _lastCacheKey = cacheKey;
     List<LikedSong> validSongs = allSongs.where((song) {
       if (song.id == currentSongId) return false; // Exclude current song
       
@@ -36,7 +66,11 @@ class RatingScreenHelpers {
       return findHigher ? songValue > currentValue : songValue < currentValue;
     }).toList();
     
-    if (validSongs.isEmpty) return null;
+    if (validSongs.isEmpty) {
+      // Cache the null result
+      _referenceSongCache[cacheKey] = null;
+      return null;
+    }
     
     // Sort and return the closest one
     validSongs.sort((a, b) {
@@ -71,7 +105,12 @@ class RatingScreenHelpers {
       }
     });
     
-    return validSongs.first;
+    final result = validSongs.first;
+    
+    // Cache the result
+    _referenceSongCache[cacheKey] = result;
+    
+    return result;
   }
 
   static Widget buildCurrentSongCard(LikedSong song, String? activeParameter, double? currentValue) {

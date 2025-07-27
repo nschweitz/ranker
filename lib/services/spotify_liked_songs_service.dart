@@ -88,6 +88,10 @@ class SpotifyLikedSongsService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _likedSongsKey = 'cached_liked_songs';
   static const String _lastSyncKey = 'last_sync_timestamp';
+  
+  // In-memory cache to avoid repeated JSON parsing
+  static List<LikedSong>? _cachedSongs;
+  static DateTime? _cacheTimestamp;
 
   static Stream<List<LikedSong>> fetchLikedSongs() async* {
     final accessToken = await SpotifyAuthService.getAccessToken();
@@ -162,18 +166,35 @@ class SpotifyLikedSongsService {
     final jsonString = json.encode(songsJson);
     await _storage.write(key: _likedSongsKey, value: jsonString);
     await _storage.write(key: _lastSyncKey, value: DateTime.now().toIso8601String());
+    
+    // Update in-memory cache
+    _cachedSongs = songs;
+    _cacheTimestamp = DateTime.now();
   }
 
   static Future<List<LikedSong>> getCachedLikedSongs() async {
+    // Return in-memory cache if available and recent (within 30 seconds)
+    if (_cachedSongs != null && 
+        _cacheTimestamp != null && 
+        DateTime.now().difference(_cacheTimestamp!).inSeconds < 30) {
+      return _cachedSongs!;
+    }
+    
     final jsonString = await _storage.read(key: _likedSongsKey);
     if (jsonString == null) {
+      _cachedSongs = [];
+      _cacheTimestamp = DateTime.now();
       return [];
     }
     
     try {
       final List<dynamic> songsJson = json.decode(jsonString);
-      return songsJson.map((songJson) => LikedSong.fromStorageJson(songJson)).toList();
+      _cachedSongs = songsJson.map((songJson) => LikedSong.fromStorageJson(songJson)).toList();
+      _cacheTimestamp = DateTime.now();
+      return _cachedSongs!;
     } catch (e) {
+      _cachedSongs = [];
+      _cacheTimestamp = DateTime.now();
       return [];
     }
   }
@@ -194,6 +215,10 @@ class SpotifyLikedSongsService {
   static Future<void> clearCache() async {
     await _storage.delete(key: _likedSongsKey);
     await _storage.delete(key: _lastSyncKey);
+    
+    // Clear in-memory cache
+    _cachedSongs = null;
+    _cacheTimestamp = null;
   }
 
   static Future<DateTime?> getMostRecentSongTime() async {
