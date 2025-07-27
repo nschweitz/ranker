@@ -45,6 +45,9 @@ class _MyHomePageState extends State<MyHomePage> {
   
   SortCriteria _currentSortCriteria = SortCriteria.timeAdded;
   SortOrder _currentSortOrder = SortOrder.descending;
+  
+  final ScrollController _scrollController = ScrollController();
+  bool _isJumpingToCurrent = false;
 
   @override
   void initState() {
@@ -183,6 +186,67 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> _jumpToCurrentSong() async {
+    setState(() {
+      _isJumpingToCurrent = true;
+    });
+
+    try {
+      final currentlyPlaying = await SpotifyPlaybackService.getCurrentlyPlaying();
+      
+      if (currentlyPlaying == null || currentlyPlaying['item'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No song is currently playing on Spotify')),
+        );
+        return;
+      }
+
+      final currentTrackId = currentlyPlaying['item']['id'] as String;
+      final currentTrackName = currentlyPlaying['item']['name'] as String;
+      final currentTrackArtist = (currentlyPlaying['item']['artists'] as List)
+          .map((artist) => artist['name'] as String)
+          .join(', ');
+
+      final songIndex = _likedSongs.indexWhere((song) => song.id == currentTrackId);
+      
+      if (songIndex == -1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Currently playing song "$currentTrackName" by $currentTrackArtist is not in your liked songs')),
+        );
+        return;
+      }
+
+      await _scrollController.animateTo(
+        songIndex * 64.0, // More accurate height: dense ListTile + Card margins
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Jumped to "$currentTrackName" by $currentTrackArtist')),
+      );
+    } catch (e) {
+      String errorMessage = 'Failed to get currently playing song';
+      if (e.toString().contains('Authentication expired')) {
+        errorMessage = 'Session expired. Please sign in again.';
+        setState(() {
+          _isSignedIn = false;
+          _accessToken = null;
+        });
+      } else if (e.toString().contains('No access token')) {
+        errorMessage = 'Please sign in to Spotify first.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } finally {
+      setState(() {
+        _isJumpingToCurrent = false;
+      });
+    }
+  }
+
   void _sortSongs() {
     _likedSongs.sort((a, b) {
       int comparison = 0;
@@ -302,6 +366,58 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  void _showAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Account'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_lastSyncTime != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Text(
+                    'Last sync: ${_lastSyncTime!.toLocal().toString().split(' ')[0]}',
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ),
+              ListTile(
+                leading: _isSyncing 
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync),
+                title: Text(_isSyncing ? 'Syncing...' : 'Sync Liked Songs'),
+                onTap: _isSyncing ? null : () {
+                  Navigator.of(context).pop();
+                  _syncLikedSongs();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Sign Out'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _signOut();
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showSortDialog() {
     showDialog(
       context: context,
@@ -321,9 +437,11 @@ class _MyHomePageState extends State<MyHomePage> {
                     groupValue: _currentSortCriteria,
                     onChanged: (SortCriteria? value) {
                       if (value != null) {
-                        setDialogState(() {
+                        setState(() {
                           _currentSortCriteria = value;
+                          _sortSongs();
                         });
+                        Navigator.of(context).pop();
                       }
                     },
                   )),
@@ -336,9 +454,11 @@ class _MyHomePageState extends State<MyHomePage> {
                     groupValue: _currentSortOrder,
                     onChanged: (SortOrder? value) {
                       if (value != null) {
-                        setDialogState(() {
+                        setState(() {
                           _currentSortOrder = value;
+                          _sortSongs();
                         });
+                        Navigator.of(context).pop();
                       }
                     },
                   ),
@@ -348,9 +468,11 @@ class _MyHomePageState extends State<MyHomePage> {
                     groupValue: _currentSortOrder,
                     onChanged: (SortOrder? value) {
                       if (value != null) {
-                        setDialogState(() {
+                        setState(() {
                           _currentSortOrder = value;
+                          _sortSongs();
                         });
+                        Navigator.of(context).pop();
                       }
                     },
                   ),
@@ -361,16 +483,7 @@ class _MyHomePageState extends State<MyHomePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _sortSongs();
-                });
-                Navigator.of(context).pop();
-              },
-              child: const Text('Apply'),
+              child: const Text('Close'),
             ),
           ],
         );
@@ -460,6 +573,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     _linkSubscription?.cancel();
     _likedSongsSubscription?.cancel();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -470,45 +584,33 @@ class _MyHomePageState extends State<MyHomePage> {
       return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: Text('${_likedSongs.length} Liked Songs'),
+          title: const Text('Ranker'),
           actions: [
+            IconButton(
+              icon: _isJumpingToCurrent 
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.my_location),
+              tooltip: 'Jump to currently playing song',
+              onPressed: _isJumpingToCurrent ? null : _jumpToCurrentSong,
+            ),
             IconButton(
               icon: const Icon(Icons.sort),
               tooltip: 'Sort songs',
               onPressed: _showSortDialog,
             ),
-            if (_lastSyncTime != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Center(
-                  child: Text(
-                    'Last sync: ${_lastSyncTime!.toLocal().toString().split(' ')[0]}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ),
-              ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'signout') {
-                  _signOut();
-                }
-              },
-              itemBuilder: (BuildContext context) => [
-                const PopupMenuItem<String>(
-                  value: 'signout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout),
-                      SizedBox(width: 8),
-                      Text('Sign Out'),
-                    ],
-                  ),
-                ),
-              ],
+            IconButton(
+              icon: const Icon(Icons.account_circle),
+              tooltip: 'Account',
+              onPressed: _showAccountDialog,
             ),
           ],
         ),
         body: ListView.builder(
+          controller: _scrollController,
           itemCount: _likedSongs.length,
           itemBuilder: (context, index) {
             final song = _likedSongs[index];
@@ -519,40 +621,6 @@ class _MyHomePageState extends State<MyHomePage> {
             );
           },
         ),
-        floatingActionButton: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_isSyncing && _totalLikedSongs != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${_likedSongs.length}/$_totalLikedSongs',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ),
-            if (_isSyncing && _totalLikedSongs != null)
-              const SizedBox(height: 8),
-            FloatingActionButton(
-              onPressed: _isSyncing ? null : _syncLikedSongs,
-              backgroundColor: _isSyncing ? Colors.grey : const Color(0xFF1DB954),
-              child: _isSyncing
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.sync, color: Colors.white),
-            ),
-          ],
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       );
     }
 

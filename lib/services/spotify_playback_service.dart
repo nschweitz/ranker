@@ -56,6 +56,41 @@ class SpotifyPlaybackService {
     }
   }
 
+  static Future<Map<String, dynamic>?> getCurrentlyPlaying() async {
+    final accessToken = await SpotifyAuthService.getAccessToken();
+    if (accessToken == null) {
+      throw Exception('No access token available. Please sign in first.');
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/me/player/currently-playing'),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data;
+      } else if (response.statusCode == 204) {
+        // No content - nothing is currently playing
+        return null;
+      } else if (response.statusCode == 401) {
+        await SpotifyAuthService.signOut();
+        throw Exception('Authentication expired. Please sign in again.');
+      } else {
+        throw Exception('Failed to get currently playing track: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e.toString().contains('Authentication expired')) {
+        rethrow;
+      }
+      throw Exception('Error getting currently playing track: $e');
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getAvailableDevices() async {
     final accessToken = await SpotifyAuthService.getAccessToken();
     if (accessToken == null) {
