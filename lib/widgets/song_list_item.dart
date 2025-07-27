@@ -86,7 +86,7 @@ class SongListItem extends StatelessWidget {
     }
 
     return Container(
-      height: 4,
+      height: 1,
       margin: const EdgeInsets.only(top: 4),
       child: CustomPaint(
         painter: GradientLinePainter(
