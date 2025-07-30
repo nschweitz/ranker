@@ -207,27 +207,20 @@ class _MyHomePageState extends State<MyHomePage> {
           .map((artist) => artist['name'] as String)
           .join(', ');
 
-      final songIndex = _likedSongs.indexWhere((song) => song.id == currentTrackId);
+      final song = _likedSongs.firstWhere(
+        (song) => song.id == currentTrackId,
+        orElse: () => throw Exception('Song not found'),
+      );
       
-      if (songIndex == -1) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Currently playing song "$currentTrackName" by $currentTrackArtist is not in your liked songs')),
-        );
-        return;
-      }
-
-      await _scrollController.animateTo(
-        songIndex * 64.0, // More accurate height: dense ListTile + Card margins
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Jumped to "$currentTrackName" by $currentTrackArtist')),
-      );
+      // Navigate directly to the rating screen for the currently playing song
+      await _showRatingScreen(song);
     } catch (e) {
       String errorMessage = 'Failed to get currently playing song';
-      if (e.toString().contains('Authentication expired')) {
+      if (e.toString().contains('Song not found')) {
+        final currentTrackName = 'Unknown';
+        final currentTrackArtist = 'Unknown';
+        errorMessage = 'Currently playing song is not in your liked songs';
+      } else if (e.toString().contains('Authentication expired')) {
         errorMessage = 'Session expired. Please sign in again.';
         setState(() {
           _isSignedIn = false;
@@ -364,6 +357,16 @@ class _MyHomePageState extends State<MyHomePage> {
       case SortCriteria.synthetic:
         return 'Synthetic';
     }
+  }
+
+  int _getRatedSongsCount() {
+    return _likedSongs.where((song) => 
+      song.qualityRating != null ||
+      song.valenceRating != null ||
+      song.intensityRating != null ||
+      song.accessibilityRating != null ||
+      song.syntheticRating != null
+    ).length;
   }
 
   void _showAccountDialog() {
@@ -584,7 +587,7 @@ class _MyHomePageState extends State<MyHomePage> {
       return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: const Text('Ranker'),
+          title: Text('${_getRatedSongsCount()} / ${_likedSongs.length}'),
           actions: [
             IconButton(
               icon: _isJumpingToCurrent 
