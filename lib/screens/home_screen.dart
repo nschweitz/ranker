@@ -56,6 +56,8 @@ class _MyHomePageState extends State<MyHomePage> {
   
   String _searchQuery = '';
   bool _isSearching = false;
+  bool _showSearchField = false;
+  final TextEditingController _searchController = TextEditingController();
   
   final ScrollController _scrollController = ScrollController();
   bool _isJumpingToCurrent = false;
@@ -67,6 +69,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _checkSignInStatus();
     _handleIncomingLinks();
     _loadCachedData();
+    _searchController.addListener(_onSearchChanged);
   }
 
   void _handleIncomingLinks() {
@@ -156,6 +159,8 @@ class _MyHomePageState extends State<MyHomePage> {
       _lastSyncTime = null;
       _searchQuery = '';
       _isSearching = false;
+      _showSearchField = false;
+      _searchController.clear();
     });
   }
 
@@ -440,62 +445,24 @@ class _MyHomePageState extends State<MyHomePage> {
     return matches.map((match) => match.song).toList();
   }
 
-  void _performSearch(String query) {
+  void _onSearchChanged() {
     setState(() {
-      _searchQuery = query;
+      _searchQuery = _searchController.text;
       _updateFilteredSongs();
       _sortSongs();
     });
   }
 
-  void _clearSearch() {
+  void _toggleSearchField() {
     setState(() {
-      _searchQuery = '';
-      _updateFilteredSongs();
-      _sortSongs();
+      _showSearchField = !_showSearchField;
+      if (!_showSearchField) {
+        _searchController.clear();
+        _searchQuery = '';
+        _updateFilteredSongs();
+        _sortSongs();
+      }
     });
-  }
-
-  void _showSearchDialog() {
-    final controller = TextEditingController(text: _searchQuery);
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Search Songs'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Search by song, artist, or album...',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            if (_searchQuery.isNotEmpty)
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _clearSearch();
-                },
-                child: const Text('Clear'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _performSearch(controller.text);
-              },
-              child: const Text('Search'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   String _getSortCriteriaDisplayName(SortCriteria criteria) {
@@ -735,6 +702,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _linkSubscription?.cancel();
     _likedSongsSubscription?.cancel();
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -745,34 +713,47 @@ class _MyHomePageState extends State<MyHomePage> {
       return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: Text('${_getRatedSongsCount()} / ${_likedSongs.length}${_isSearching ? ' (filtered)' : ''}'),
+          title: _showSearchField 
+              ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Search by song, artist, or album...',
+                    hintStyle: TextStyle(color: Colors.white54),
+                    border: InputBorder.none,
+                  ),
+                )
+              : Text('${_getRatedSongsCount()} / ${_likedSongs.length}${_isSearching ? ' (filtered)' : ''}'),
           actions: [
             IconButton(
-              icon: Icon(_isSearching ? Icons.search_off : Icons.search),
-              tooltip: _isSearching ? 'Clear search' : 'Search songs',
-              onPressed: _isSearching ? _clearSearch : _showSearchDialog,
+              icon: Icon(_showSearchField ? Icons.close : Icons.search),
+              tooltip: _showSearchField ? 'Close search' : 'Search songs',
+              onPressed: _toggleSearchField,
             ),
-            IconButton(
-              icon: _isJumpingToCurrent 
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location),
-              tooltip: 'Jump to currently playing song',
-              onPressed: _isJumpingToCurrent ? null : _jumpToCurrentSong,
-            ),
-            IconButton(
-              icon: const Icon(Icons.sort),
-              tooltip: 'Sort songs',
-              onPressed: _showSortDialog,
-            ),
-            IconButton(
-              icon: const Icon(Icons.account_circle),
-              tooltip: 'Account',
-              onPressed: _showAccountDialog,
-            ),
+            if (!_showSearchField) ...[
+              IconButton(
+                icon: _isJumpingToCurrent 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.my_location),
+                tooltip: 'Jump to currently playing song',
+                onPressed: _isJumpingToCurrent ? null : _jumpToCurrentSong,
+              ),
+              IconButton(
+                icon: const Icon(Icons.sort),
+                tooltip: 'Sort songs',
+                onPressed: _showSortDialog,
+              ),
+              IconButton(
+                icon: const Icon(Icons.account_circle),
+                tooltip: 'Account',
+                onPressed: _showAccountDialog,
+              ),
+            ],
           ],
         ),
         body: ListView.builder(
