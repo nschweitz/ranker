@@ -21,6 +21,13 @@ enum SortOrder {
   descending,
 }
 
+class SongMatch {
+  final LikedSong song;
+  final int score;
+  
+  SongMatch({required this.song, required this.score});
+}
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
@@ -38,6 +45,7 @@ class _MyHomePageState extends State<MyHomePage> {
   late AppLinks _appLinks;
   
   List<LikedSong> _likedSongs = [];
+  List<LikedSong> _filteredSongs = [];
   bool _isSyncing = false;
   int? _totalLikedSongs;
   DateTime? _lastSyncTime;
@@ -45,6 +53,9 @@ class _MyHomePageState extends State<MyHomePage> {
   
   SortCriteria _currentSortCriteria = SortCriteria.timeAdded;
   SortOrder _currentSortOrder = SortOrder.descending;
+  
+  String _searchQuery = '';
+  bool _isSearching = false;
   
   final ScrollController _scrollController = ScrollController();
   bool _isJumpingToCurrent = false;
@@ -97,6 +108,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _likedSongs.clear();
       _likedSongs.addAll(cachedSongs);
       _lastSyncTime = lastSync;
+      _updateFilteredSongs();
       _sortSongs();
     });
   }
@@ -138,9 +150,12 @@ class _MyHomePageState extends State<MyHomePage> {
       _isSignedIn = false;
       _accessToken = null;
       _likedSongs.clear();
+      _filteredSongs.clear();
       _totalLikedSongs = null;
       _isSyncing = false;
       _lastSyncTime = null;
+      _searchQuery = '';
+      _isSearching = false;
     });
   }
 
@@ -181,6 +196,7 @@ class _MyHomePageState extends State<MyHomePage> {
       final index = _likedSongs.indexWhere((song) => song.id == songId);
       if (index != -1) {
         _likedSongs[index] = updatedSong;
+        _updateFilteredSongs();
         _sortSongs();
       }
     });
@@ -241,7 +257,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _sortSongs() {
-    _likedSongs.sort((a, b) {
+    final songsToSort = _isSearching ? _filteredSongs : _likedSongs;
+    songsToSort.sort((a, b) {
       int comparison = 0;
       
       switch (_currentSortCriteria) {
@@ -340,6 +357,145 @@ class _MyHomePageState extends State<MyHomePage> {
       
       return _currentSortOrder == SortOrder.ascending ? comparison : -comparison;
     });
+  }
+
+  void _updateFilteredSongs() {
+    if (_searchQuery.isEmpty) {
+      _filteredSongs = _likedSongs;
+      _isSearching = false;
+    } else {
+      _filteredSongs = _searchSongs(_searchQuery);
+      _isSearching = true;
+    }
+  }
+
+  List<LikedSong> _searchSongs(String query) {
+    final lowercaseQuery = query.toLowerCase();
+    final matches = <SongMatch>[];
+    
+    for (final song in _likedSongs) {
+      final songName = song.name.toLowerCase();
+      final albumName = song.album.toLowerCase();
+      final artistNames = song.artists.map((a) => a.toLowerCase()).toList();
+      final allArtists = artistNames.join(' ');
+      
+      int score = 0;
+      bool hasMatch = false;
+      
+      // Exact song name match (highest priority)
+      if (songName == lowercaseQuery) {
+        score += 1000;
+        hasMatch = true;
+      }
+      // Song name starts with query
+      else if (songName.startsWith(lowercaseQuery)) {
+        score += 500;
+        hasMatch = true;
+      }
+      // Song name contains query
+      else if (songName.contains(lowercaseQuery)) {
+        score += 300;
+        hasMatch = true;
+      }
+      
+      // Exact artist match
+      if (artistNames.any((artist) => artist == lowercaseQuery)) {
+        score += 800;
+        hasMatch = true;
+      }
+      // Artist starts with query
+      else if (artistNames.any((artist) => artist.startsWith(lowercaseQuery))) {
+        score += 400;
+        hasMatch = true;
+      }
+      // Artist contains query
+      else if (allArtists.contains(lowercaseQuery)) {
+        score += 200;
+        hasMatch = true;
+      }
+      
+      // Exact album match
+      if (albumName == lowercaseQuery) {
+        score += 600;
+        hasMatch = true;
+      }
+      // Album starts with query
+      else if (albumName.startsWith(lowercaseQuery)) {
+        score += 300;
+        hasMatch = true;
+      }
+      // Album contains query
+      else if (albumName.contains(lowercaseQuery)) {
+        score += 150;
+        hasMatch = true;
+      }
+      
+      if (hasMatch) {
+        matches.add(SongMatch(song: song, score: score));
+      }
+    }
+    
+    // Sort by score (descending) and return songs
+    matches.sort((a, b) => b.score.compareTo(a.score));
+    return matches.map((match) => match.song).toList();
+  }
+
+  void _performSearch(String query) {
+    setState(() {
+      _searchQuery = query;
+      _updateFilteredSongs();
+      _sortSongs();
+    });
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchQuery = '';
+      _updateFilteredSongs();
+      _sortSongs();
+    });
+  }
+
+  void _showSearchDialog() {
+    final controller = TextEditingController(text: _searchQuery);
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Search Songs'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Search by song, artist, or album...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            if (_searchQuery.isNotEmpty)
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _clearSearch();
+                },
+                child: const Text('Clear'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performSearch(controller.text);
+              },
+              child: const Text('Search'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   String _getSortCriteriaDisplayName(SortCriteria criteria) {
@@ -507,6 +663,7 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         _likedSongs.clear();
         _likedSongs.addAll(cachedSongs);
+        _updateFilteredSongs();
         _sortSongs();
       });
 
@@ -520,6 +677,7 @@ class _MyHomePageState extends State<MyHomePage> {
           setState(() {
             // Insert new songs at the beginning since they're newer
             _likedSongs.insertAll(0, batch);
+            _updateFilteredSongs();
             _sortSongs();
           });
         },
@@ -587,8 +745,13 @@ class _MyHomePageState extends State<MyHomePage> {
       return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: Text('${_getRatedSongsCount()} / ${_likedSongs.length}'),
+          title: Text('${_getRatedSongsCount()} / ${_likedSongs.length}${_isSearching ? ' (filtered)' : ''}'),
           actions: [
+            IconButton(
+              icon: Icon(_isSearching ? Icons.search_off : Icons.search),
+              tooltip: _isSearching ? 'Clear search' : 'Search songs',
+              onPressed: _isSearching ? _clearSearch : _showSearchDialog,
+            ),
             IconButton(
               icon: _isJumpingToCurrent 
                   ? const SizedBox(
@@ -614,9 +777,9 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         body: ListView.builder(
           controller: _scrollController,
-          itemCount: _likedSongs.length,
+          itemCount: _isSearching ? _filteredSongs.length : _likedSongs.length,
           itemBuilder: (context, index) {
-            final song = _likedSongs[index];
+            final song = _isSearching ? _filteredSongs[index] : _likedSongs[index];
             return SongListItem(
               song: song,
               onTap: () => _showRatingScreen(song),
